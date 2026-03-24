@@ -467,13 +467,6 @@ The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 ```
 
----
-
-## 📞 联系方式
-
-- **作者**: Your Name
-- **邮箱**: your.email@example.com
-- **博客**: https://yourblog.com
 
 ---
 
