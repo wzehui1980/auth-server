@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>客户端管理 - SSO 认证中心</title>
+  <link rel="preconnect" href="https://cdn.staticfile.org">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link href="https://cdn.staticfile.org/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.staticfile.org/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar-width: 260px;
+      --topbar-height: 70px;
+      --primary-color: #4f46e5;
+      --bg-color: #f8fafc;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      background: #1e293b;
+      color: white;
+      z-index: 1000;
+    }
+
+    .sidebar-header {
+      height: var(--topbar-height);
+      display: flex;
+      align-items: center;
+      padding: 0 25px;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-link {
+      color: #94a3b8;
+      padding: 12px 25px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-left: 4px solid transparent;
+      text-decoration: none;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      color: white;
+      background: rgba(255, 255, 255, 0.05);
+      border-left-color: var(--primary-color);
+    }
+
+    .main-content {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+    }
+
+    .topbar {
+      height: var(--topbar-height);
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .content-body {
+      padding: 30px;
+    }
+
+    .client-card {
+      background: white;
+      border: none;
+      border-radius: 15px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .table thead {
+      background-color: #f1f5f9;
+    }
+
+    .table th {
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      padding: 15px 20px;
+    }
+
+    .table td {
+      padding: 15px 20px;
+      vertical-align: middle;
+    }
+
+    .badge-method {
+      font-size: 0.75rem;
+      padding: 0.35em 0.75em;
+    }
+
+    .logout-btn {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-weight: 500;
+    }
+
+    .modal {
+      z-index: 1055 !important;
+    }
+
+    .modal-backdrop {
+      z-index: 1050 !important;
+    }
+
+    /* 授权模式复选框卡片样式 */
+    .form-check-custom {
+      transition: all 0.2s ease;
+    }
+
+    .form-check-custom:has(input:checked) {
+      background-color: rgba(25, 135, 84, 0.1) !important;
+      border-color: #198754 !important;
+    }
+
+    /* PKCE 卡片高亮样式 */
+    #proofKeyCard.border-success {
+      border: 2px solid #198754 !important;
+      background-color: rgba(25, 135, 84, 0.05) !important;
+    }
+
+    /* 重定向 URI 隐藏/显示动画 */
+    .redirect-uri-container {
+      transition: all 0.3s ease;
+    }
+
+    /* 客户端密钥区域动画 */
+    #clientSecretSection {
+      transition: all 0.3s ease;
+    }
+
+    /* 禁用状态的复选框样式 */
+    input[type="checkbox"]:disabled+label {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* 强制启用的复选框添加提示图标 */
+    input[type="checkbox"]:checked:disabled+label::after {
+      content: " (必填)";
+      color: #198754;
+      font-size: 0.85rem;
+    }
+
+    /* 安全选项区域动画 */
+    #securityOptionsContainer {
+      transition: all 0.3s ease;
+    }
+
+    /* Token有效期区域动画 */
+    #tokenValidityContainer {
+      transition: all 0.3s ease;
+    }
+
+    /* Refresh Token 容器隐藏时的样式 */
+    #refreshTokenTTLContainer.hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h5 class="mb-0 fw-bold text-white"><i class="fas fa-shield-halved me-2 text-primary"></i>认证中心</h5>
+    </div>
+    <div class="mt-4">
+      <a href="/admin/dashboard" class="nav-link">
+        <i class="fas fa-chart-line"></i> 仪表盘
+      </a>
+      <a href="/admin/users" class="nav-link">
+        <i class="fas fa-users-cog"></i> 用户管理
+      </a>
+      <a href="/admin/roles" class="nav-link">
+        <i class="fas fa-user-shield"></i> 角色管理
+      </a>
+      <a href="/admin/clients" class="nav-link active">
+        <i class="fas fa-project-diagram"></i> 客户端管理
+      </a>
+      <a href="/admin/audit-logs" class="nav-link">
+        <i class="fas fa-history"></i> 审计日志
+      </a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="topbar">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item text-muted">管理后台</li>
+          <li class="breadcrumb-item active">客户端管理</li>
+        </ol>
+      </nav>
+      <div class="d-flex align-items-center gap-3">
+        <div class="text-end d-none d-sm-block">
+          <div class="fw-semibold small" sec:authentication="name">Admin</div>
+          <div class="text-muted" style="font-size: 0.75rem;">超级管理员</div>
+        </div>
+        <form th:action="@{/logout}" method="post">
+          <button type="submit" class="logout-btn small"><i class="fas fa-sign-out-alt"></i></button>
+        </form>
+      </div>
+    </div>
+
+    <div class="content-body">
+      <!-- 成功提示 -->
+      <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <span th:text="${successMessage}">操作成功！</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+
+      <!-- 错误提示 -->
+      <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <span th:text="${errorMessage}">操作失败！</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0">OAuth2 客户端列表</h4>
+        <button type="button" class="btn btn-primary btn-sm px-3 rounded-pill" id="addClientBtn"
+          onclick="openAddClientModal()">
+          <i class="fas fa-plus me-1"></i> 新建客户端
+        </button>
+      </div>
+
+      <div class="client-card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>客户端信息</th>
+                <th>认证方式</th>
+                <th>授权模式</th>
+                <th>重定向 URI</th>
+                <th>权限范围</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="client : ${clients}">
+                <td>
+                  <div class="d-flex align-items-center gap-3">
+                    <div
+                      class="avatar-circle bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center"
+                      style="width: 40px; height: 40px;">
+                      <i class="fas fa-key"></i>
+                    </div>
+                    <div>
+                      <div class="fw-semibold" th:text="${client.clientName}">client-name</div>
+                      <div class="text-muted small"
+                        th:text="${client.clientIdIssuedAt != null} ? ${#temporals.format(client.clientIdIssuedAt, 'yyyy-MM-dd HH:mm')} : '-'">
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span th:each="method : ${client.clientAuthenticationMethods}" class="badge badge-method mb-1"
+                    th:classappend="${method == 'CLIENT_SECRET_BASIC'} ? 'bg-primary' : (${method == 'NONE'} ? 'bg-secondary' : 'bg-info')"
+                    th:text="${method}">CLIENT_SECRET_BASIC</span>
+                </td>
+                <td>
+                  <span th:each="grantType : ${client.authorizationGrantTypes}"
+                    class="badge badge-method me-1 bg-success" th:text="${grantType}">authorization_code</span>
+                </td>
+                <td>
+                  <div class="text-truncate" style="max-width: 200px;">
+                    <span th:each="uri : ${client.redirectUris}" th:text="${uri}"><br /></span>
+                  </div>
+                </td>
+                <td>
+                  <span th:each="scope : ${client.scopes}" class="badge badge-method me-1 bg-warning text-dark"
+                    th:text="${scope}">openid</span>
+                </td>
+                <td>
+                  <div class="dropdown">
+                    <button class="btn btn-light btn-sm rounded-circle" data-bs-toggle="dropdown">
+                      <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                      <li>
+                        <a class="dropdown-item small edit-client-btn" href="#" th:data-client="${client.clientId}"
+                          onclick="openEditClientModal(event, this.getAttribute('data-client'))">
+                          <i class="far fa-edit me-2"></i>编辑配置
+                        </a>
+                      </li>
+                      <li>
+                        <hr class="dropdown-divider">
+                      </li>
+                      <li>
+                        <form th:action="@{/admin/clients/delete}" method="post"
+                          onsubmit="return confirm('确定要删除该客户端吗？');">
+                          <input type="hidden" name="id" th:value="${client.id}">
+                          <button type="submit" class="dropdown-item small text-danger"><i
+                              class="far fa-trash-can me-2"></i>删除</button>
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 无数据提示 -->
+      <div class="text-center text-muted py-5" th:if="${#lists.isEmpty(clients)}">
+        <i class="fas fa-inbox fa-3x mb-3" style="opacity: 0.3;"></i>
+        <p class="text-muted">暂无客户端数据</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加客户端模态框 -->
+  <div class="modal fade" id="addClientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+        <form th:action="@{/admin/clients/add}" method="post"
+          onsubmit="event.preventDefault(); return validateAddClientForm();">
+          <!-- ⭐ 错误提示区域 -->
+          <div class="alert alert-danger m-3" id="add-client-error" style="display: none;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="add-client-error-message"></span>
+          </div>
+          <div class="modal-header border-0 pb-0 pt-4 px-4">
+            <h5 class="fw-bold">创建新客户端</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            <!-- 基本信息 -->
+            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-info-circle me-2"></i>基本信息</h6>
+            <div class="row g-3 mb-4">
+              <div class="col-md-8">
+                <label class="form-label small fw-bold text-muted">客户端名称 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control bg-light border-0 py-2" name="clientName"
+                  placeholder="例如：My Application" required>
+                <small class="text-muted"><i class="fas fa-lightbulb me-1"></i>用于标识客户端的友好名称</small>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">认证方式 <span class="text-danger">*</span></label>
+                <select class="form-select" name="clientAuthenticationMethod" id="clientAuthMethodSelect" required>
+                  <option value="CLIENT_SECRET_BASIC">CLIENT_SECRET_BASIC</option>
+                  <option value="CLIENT_SECRET_POST">CLIENT_SECRET_POST</option>
+                  <option value="NONE">NONE</option>
+                </select>
+                <div id="authMethodDescription" class="mt-2 p-2 bg-light rounded border">
+                  <small class="text-muted">
+                    <i class="fas fa-info-circle me-1 text-primary"></i>
+                    <span id="authMethodDescText">推荐：Web 应用，通过 HTTP Basic 认证</span>
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <!-- 授权配置 -->
+            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-shield-alt me-2"></i>授权配置</h6>
+            <div class="mb-4">
+              <label class="form-label small fw-bold text-muted mb-2">授权模式</label>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <div class="form-check form-check-custom p-3 border rounded-3 bg-light">
+                    <input class="form-check-input" type="checkbox" name="authorizationGrantTypes"
+                      value="authorization_code" id="auth_code" checked>
+                    <label class="form-check-label fw-semibold small" for="auth_code">
+                      <i class="fas fa-key me-1 text-primary"></i>授权码模式
+                    </label>
+                    <div class="text-muted" style="font-size: 0.7rem;">Authorization Code</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-check-custom p-3 border rounded-3 bg-light">
+                    <input class="form-check-input" type="checkbox" name="authorizationGrantTypes" value="refresh_token"
+                      id="refresh_token">
+                    <label class="form-check-label fw-semibold small" for="refresh_token">
+                      <i class="fas fa-sync me-1 text-success"></i>刷新令牌
+                    </label>
+                    <div class="text-muted" style="font-size: 0.7rem;">Refresh Token</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-check-custom p-3 border rounded-3 bg-light">
+                    <input class="form-check-input" type="checkbox" name="authorizationGrantTypes"
+                      value="client_credentials" id="client_credentials">
+                    <label class="form-check-label fw-semibold small" for="client_credentials">
+                      <i class="fas fa-robot me-1 text-warning"></i>客户端凭证
+                    </label>
+                    <div class="text-muted" style="font-size: 0.7rem;">Client Credentials</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-4" id="redirectUriContainer">
+              <label class="form-label small fw-bold text-muted mb-2">重定向 URI <span class="text-danger"
+                  id="redirectUriRequired">*</span></label>
+              <input type="text" class="form-control bg-light border-0 py-2" name="redirectUri" id="redirectUriInput"
+                placeholder="http://localhost:8080/callback" required>
+              <small class="text-muted"><i class="fas fa-exclamation-circle me-1 text-warning"></i>OAuth2
+                回调地址，使用授权码模式时必须填写</small>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label small fw-bold text-muted mb-2">权限范围</label>
+              <div class="border rounded-3 p-3 bg-light mb-3" style="min-height: 120px;">
+                <div class="row g-2">
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="openid" id="scope_openid"
+                        checked>
+                      <label class="form-check-label small" for="scope_openid">openid</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="profile" id="scope_profile"
+                        checked>
+                      <label class="form-check-label small" for="scope_profile">profile</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="email" id="scope_email">
+                      <label class="form-check-label small" for="scope_email">email</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="api.read"
+                        id="scope_api_read">
+                      <label class="form-check-label small" for="scope_api_read">api.read</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="api.write"
+                        id="scope_api_write">
+                      <label class="form-check-label small" for="scope_api_write">api.write</label>
+                    </div>
+                  </div>
+                </div>
+                <!-- 自定义 Scope 标签列表 -->
+                <div id="customScopesContainer" class="mt-3 d-flex flex-wrap gap-2"></div>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-8">
+                  <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" id="customScopeInput"
+                      placeholder="输入自定义权限，如：custom.scope 或 user:read">
+                    <button class="btn btn-outline-primary" type="button" id="addCustomScopeBtn">
+                      <i class="fas fa-plus me-1"></i>添加
+                    </button>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <small class="text-muted"><i class="fas fa-info-circle me-1"></i>支持添加多个自定义权限范围</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- 高级设置 -->
+            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-cog me-2"></i>高级设置</h6>
+
+            <!-- 客户端密钥配置（仅保密客户端显示） -->
+            <div id="clientSecretSection" class="row g-3 mb-3">
+              <div class="col-md-12">
+                <div class="card border-0 bg-light">
+                  <div class="card-body p-3">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" name="generateClientSecret" value="true"
+                        id="generateClientSecret" checked disabled>
+                      <label class="form-check-label fw-semibold" for="generateClientSecret">
+                        <i class="fas fa-key me-1 text-primary"></i>自动生成客户端密钥
+                      </label>
+                    </div>
+                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"
+                      id="clientSecretDescription">系统将生成一个安全的随机密钥</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3" id="tokenValidityContainer">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-muted">Access Token有效期</label>
+                <div class="input-group">
+                  <input type="number" class="form-control bg-light border-0 py-2" name="accessTokenTTL" value="2"
+                    min="1">
+                  <span class="input-group-text bg-white border-start-0">小时</span>
+                </div>
+              </div>
+              <div class="col-md-6" id="refreshTokenTTLContainer">
+                <label class="form-label small fw-bold text-muted">Refresh Token有效期</label>
+                <div class="input-group">
+                  <input type="number" class="form-control bg-light border-0 py-2" name="refreshTokenTTL" value="7"
+                    min="1">
+                  <span class="input-group-text bg-white border-start-0">天</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="border-top pt-3 mt-3" id="securityOptionsContainer">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="card border-0 bg-light" id="requireConsentCard">
+                    <div class="card-body p-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="requireConsent" value="true"
+                          id="requireConsent" checked>
+                        <label class="form-check-label fw-semibold" for="requireConsent">
+                          <i class="fas fa-user-check me-1 text-primary"></i>需要用户授权确认
+                        </label>
+                      </div>
+                      <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">用户需确认授权后才可访问</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card border-0 bg-light" id="proofKeyCard">
+                    <div class="card-body p-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="requireProofKey" value="true"
+                          id="requireProofKey">
+                        <label class="form-check-label fw-semibold" for="requireProofKey">
+                          <i class="fas fa-user-shield me-1 text-success"></i>强制使用 PKCE
+                        </label>
+                      </div>
+                      <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">防止授权码拦截攻击，公开客户端推荐开启</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer border-0 p-4 pt-0">
+            <button type="button" class="btn btn-light px-4 rounded-pill" data-bs-dismiss="modal">取消</button>
+            <button type="submit" class="btn btn-primary px-4 rounded-pill">确认创建</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑客户端模态框 -->
+  <div class="modal fade" id="editClientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+        <form th:action="@{/admin/clients/update}" method="post"
+          onsubmit="event.preventDefault(); return validateEditClientForm();">
+          <!-- ⭐ 错误提示区域 -->
+          <div class="alert alert-danger m-3" id="edit-client-error" style="display: none;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="edit-client-error-message"></span>
+          </div>
+          <div class="modal-header border-0 pb-0 pt-4 px-4">
+            <h5 class="fw-bold">编辑客户端配置</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            <!-- 客户端 ID（隐藏字段） -->
+            <input type="hidden" name="clientId" id="edit_clientId">
+
+            <!-- 基本信息 -->
+            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-info-circle me-2"></i>基本信息</h6>
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-muted">客户端 ID</label>
+                <input type="text" class="form-control bg-light border-0 py-2" id="edit_clientIdDisplay"
+                  placeholder="client-id" readonly disabled>
+                <small class="text-muted"><i class="fas fa-lock me-1"></i>客户端 ID 不可修改</small>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-muted">客户端密钥</label>
+                <div class="input-group">
+                  <input type="password" class="form-control bg-light border-0 py-2" id="edit_clientSecretDisplay"
+                    placeholder="••••••••••••" readonly disabled>
+                  <button class="btn btn-outline-secondary" type="button" onclick="toggleSecretVisibility()">
+                    <i class="fas fa-eye" id="toggleSecretIcon"></i>
+                  </button>
+                </div>
+                <small class="text-muted"><i class="fas fa-shield-alt me-1"></i>BCrypt 加密存储</small>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-md-8">
+                <label class="form-label small fw-bold text-muted">客户端名称 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control bg-light border-0 py-2" id="edit_clientName" name="clientName"
+                  placeholder="例如：My Application" required>
+                <small class="text-muted"><i class="fas fa-info-circle me-1"></i>用于标识客户端的友好名称</small>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">认证方式 <span class="text-danger">*</span></label>
+                <select class="form-select" name="clientAuthenticationMethod" id="edit_clientAuthMethodSelect" required>
+                  <option value="CLIENT_SECRET_BASIC">CLIENT_SECRET_BASIC</option>
+                  <option value="CLIENT_SECRET_POST">CLIENT_SECRET_POST</option>
+                  <option value="NONE">NONE</option>
+                </select>
+                <div id="edit_authMethodDescription" class="mt-2 p-2 bg-light rounded border">
+                  <small class="text-muted">
+                    <i class="fas fa-info-circle me-1 text-primary"></i>
+                    <span id="edit_authMethodDescText">推荐：Web 应用，通过 HTTP Basic 认证</span>
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <!-- 授权配置 -->
+            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-shield-alt me-2"></i>授权配置</h6>
+            <div class="mb-4">
+              <label class="form-label small fw-bold text-muted mb-2">授权模式</label>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <div class="form-check form-check-custom p-3 border rounded-3 bg-light">
+                    <input class="form-check-input" type="checkbox" name="authorizationGrantTypes"
+                      value="authorization_code" id="edit_auth_code">
+                    <label class="form-check-label fw-semibold small" for="edit_auth_code">
+                      <i class="fas fa-key me-1 text-primary"></i>授权码模式
+                    </label>
+                    <div class="text-muted" style="font-size: 0.7rem;">Authorization Code</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-check-custom p-3 border rounded-3 bg-light">
+                    <input class="form-check-input" type="checkbox" name="authorizationGrantTypes" value="refresh_token"
+                      id="edit_refresh_token">
+                    <label class="form-check-label fw-semibold small" for="edit_refresh_token">
+                      <i class="fas fa-sync me-1 text-success"></i>刷新令牌
+                    </label>
+                    <div class="text-muted" style="font-size: 0.7rem;">Refresh Token</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-check-custom p-3 border rounded-3 bg-light">
+                    <input class="form-check-input" type="checkbox" name="authorizationGrantTypes"
+                      value="client_credentials" id="edit_client_credentials">
+                    <label class="form-check-label fw-semibold small" for="edit_client_credentials">
+                      <i class="fas fa-robot me-1 text-warning"></i>客户端凭证
+                    </label>
+                    <div class="text-muted" style="font-size: 0.7rem;">Client Credentials</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-4" id="edit_redirectUriContainer">
+              <label class="form-label small fw-bold text-muted mb-2">重定向 URI <span class="text-danger">*</span></label>
+              <input type="text" class="form-control bg-light border-0 py-2" name="redirectUri"
+                id="edit_redirectUriInput" placeholder="http://localhost:8080/callback" required>
+              <small class="text-muted"><i class="fas fa-exclamation-circle me-1 text-warning"></i>OAuth2
+                回调地址，使用授权码模式时必须填写</small>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label small fw-bold text-muted mb-2">权限范围 <span class="text-danger">*</span></label>
+              <div class="border rounded-3 p-3 bg-light mb-3" style="min-height: 120px;">
+                <div class="row g-2">
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="openid"
+                        id="edit_scope_openid">
+                      <label class="form-check-label small" for="edit_scope_openid">openid</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="profile"
+                        id="edit_scope_profile">
+                      <label class="form-check-label small" for="edit_scope_profile">profile</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="email" id="edit_scope_email">
+                      <label class="form-check-label small" for="edit_scope_email">email</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="api.read"
+                        id="edit_scope_api_read">
+                      <label class="form-check-label small" for="edit_scope_api_read">api.read</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 col-sm-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="scopes" value="api.write"
+                        id="edit_scope_api_write">
+                      <label class="form-check-label small" for="edit_scope_api_write">api.write</label>
+                    </div>
+                  </div>
+                </div>
+                <!-- 自定义 Scope 标签列表 -->
+                <div id="edit_customScopesContainer" class="mt-3 d-flex flex-wrap gap-2"></div>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-8">
+                  <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" id="edit_customScopeInput"
+                      placeholder="输入自定义权限，如：custom.scope 或 user:read">
+                    <button class="btn btn-outline-primary" type="button" id="edit_addCustomScopeBtn">
+                      <i class="fas fa-plus me-1"></i>添加
+                    </button>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <small class="text-muted"><i class="fas fa-info-circle me-1"></i>支持添加多个自定义权限范围</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- 高级设置 -->
+            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-cog me-2"></i>高级设置</h6>
+
+            <!-- 客户端密钥配置（仅保密客户端显示） -->
+            <div id="edit_clientSecretSection" class="row g-3 mb-3">
+              <div class="col-md-12">
+                <div class="card border-0 bg-light">
+                  <div class="card-body p-3">
+                    <div class="alert alert-info mb-0 py-2" style="font-size: 0.85rem;">
+                      <i class="fas fa-info-circle me-1"></i>客户端密钥在创建后不可修改，如需更换请删除后重新创建
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3" id="edit_tokenValidityContainer">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-muted">Access Token 有效期</label>
+                <div class="input-group">
+                  <input type="number" class="form-control bg-light border-0 py-2" name="accessTokenTTL"
+                    id="edit_accessTokenTTL" value="2" min="1">
+                  <span class="input-group-text bg-white border-start-0">小时</span>
+                </div>
+              </div>
+              <div class="col-md-6" id="edit_refreshTokenTTLContainer">
+                <label class="form-label small fw-bold text-muted">Refresh Token 有效期</label>
+                <div class="input-group">
+                  <input type="number" class="form-control bg-light border-0 py-2" name="refreshTokenTTL"
+                    id="edit_refreshTokenTTL" value="7" min="1">
+                  <span class="input-group-text bg-white border-start-0">天</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="border-top pt-3 mt-3" id="edit_securityOptionsContainer">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="card border-0 bg-light" id="edit_requireConsentCard">
+                    <div class="card-body p-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="requireConsent" value="true"
+                          id="edit_requireConsent">
+                        <label class="form-check-label fw-semibold" for="edit_requireConsent">
+                          <i class="fas fa-user-check me-1 text-primary"></i>需要用户授权确认
+                        </label>
+                      </div>
+                      <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">用户需确认授权后才可访问</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card border-0 bg-light" id="edit_proofKeyCard">
+                    <div class="card-body p-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="requireProofKey" value="true"
+                          id="edit_requireProofKey">
+                        <label class="form-check-label fw-semibold" for="edit_requireProofKey">
+                          <i class="fas fa-user-shield me-1 text-success"></i>强制使用 PKCE
+                        </label>
+                      </div>
+                      <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">防止授权码拦截攻击，公开客户端推荐开启</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer border-0 p-4 pt-0">
+            <button type="button" class="btn btn-light px-4 rounded-pill" data-bs-dismiss="modal">取消</button>
+            <button type="submit" class="btn btn-primary px-4 rounded-pill">保存更改</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.staticfile.org/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <script>
+    var addClientModalInstance = null;
+    var editClientModalInstance = null;
+    var customScopeCounter = 0;
+    var customScopes = [];
+    var editCustomScopeCounter = 0;
+    var editCustomScopes = [];
+
+    // 认证方式说明映射
+    var authMethodDescriptions = {
+      'CLIENT_SECRET_BASIC': '推荐：Web 应用，通过 HTTP Basic 认证。客户端凭证在请求头中发送，安全性较高。',
+      'CLIENT_SECRET_POST': '推荐：移动端应用，通过 POST 参数认证。客户端凭证在请求体中发送，适合移动环境。',
+      'NONE': '公开客户端，如纯前端 SPA 应用。不使用客户端密钥，需配合 PKCE 使用以增强安全性。'
+    };
+
+    // 授权模式说明映射
+    var grantTypeDescriptions = {
+      'authorization_code': '授权码模式：最常用的 OAuth2 模式，适用于有后端的 Web 应用和移动端应用。',
+      'refresh_token': '刷新令牌：用于获取新的 access token，通常与授权码模式配合使用。',
+      'client_credentials': '客户端凭证模式：适用于后端服务之间的认证，没有用户参与，不需要重定向 URI。'
+    };
+
+    // ⭐ 验证重定向 URI 格式
+    function validateRedirectUri(uri) {
+      if (!uri || uri.trim() === '') {
+        return true; // 允许空值，由后端决定是否必填
+      }
+
+      // 简单的 URI 格式验证
+      var uriPattern = /^(https?:\/\/)([\da-z\.-]+)(:[\d]+)?([\/\w \.-]*)*\/?$/;
+      return uriPattern.test(uri);
+    }
+
+    // ⭐ 显示错误消息
+    function showAddClientError(message) {
+      var errorDiv = document.getElementById('add-client-error');
+      var errorMessage = document.getElementById('add-client-error-message');
+      if (errorDiv && errorMessage) {
+        errorMessage.textContent = message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    // ⭐ 隐藏错误消息
+    function hideAddClientError() {
+      var errorDiv = document.getElementById('add-client-error');
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+      }
+    }
+
+    // ⭐ 显示编辑表单错误消息
+    function showEditClientError(message) {
+      var errorDiv = document.getElementById('edit-client-error');
+      var errorMessage = document.getElementById('edit-client-error-message');
+      if (errorDiv && errorMessage) {
+        errorMessage.textContent = message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    // ⭐ 隐藏编辑表单错误消息
+    function hideEditClientError() {
+      var errorDiv = document.getElementById('edit-client-error');
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+      }
+    }
+
+    // ⭐ 表单验证函数
+    window.validateAddClientForm = function () {
+      var redirectUri = document.getElementById('redirectUriInput').value.trim();
+
+      // 隐藏之前的错误
+      hideAddClientError();
+
+      // 验证重定向 URI 格式
+      if (redirectUri && !validateRedirectUri(redirectUri)) {
+        showAddClientError('重定向 URI 格式不正确，请输入有效的 URL（如：http://localhost:8080/callback）');
+        return false;
+      }
+
+      // ⭐ 所有验证通过，提交表单
+      event.target.submit();
+      return false;
+    };
+
+    // ⭐ 编辑表单验证函数
+    window.validateEditClientForm = function () {
+      // 隐藏之前的错误
+      hideEditClientError();
+
+      // 1. 验证客户端名称（必填）
+      var clientName = document.getElementById('edit_clientName').value.trim();
+      if (!clientName || clientName === '') {
+        showEditClientError('客户端名称不能为空');
+        return false;
+      }
+
+      // 2. 验证授权模式（至少选择一个）
+      var selectedGrantTypes = document.querySelectorAll('#editClientModal input[name="authorizationGrantTypes"]:checked');
+      if (selectedGrantTypes.length === 0) {
+        showEditClientError('请至少选择一个授权模式');
+        return false;
+      }
+
+      // 3. 验证重定向 URI（必填且格式正确）
+      var redirectUri = document.getElementById('edit_redirectUriInput').value.trim();
+      if (!redirectUri || redirectUri === '') {
+        showEditClientError('重定向 URI 不能为空');
+        return false;
+      }
+      if (!validateRedirectUri(redirectUri)) {
+        showEditClientError('重定向 URI 格式不正确，请输入有效的 URL（如：http://localhost:8080/callback）');
+        return false;
+      }
+
+      // 4. 验证权限范围（至少选择一个）
+      var selectedScopes = document.querySelectorAll('#editClientModal input[name="scopes"]:checked');
+      if (selectedScopes.length === 0) {
+        showEditClientError('请至少选择一个权限范围');
+        return false;
+      }
+
+      // ⭐ 所有验证通过，提交表单
+      event.target.submit();
+      return false;
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var addClientModalElement = document.getElementById('addClientModal');
+      if (addClientModalElement) {
+        addClientModalInstance = new bootstrap.Modal(addClientModalElement, {
+          backdrop: true,
+          keyboard: true
+        });
+
+        // 监听模态框关闭事件，重置表单
+        addClientModalElement.addEventListener('hidden.bs.modal', function () {
+          resetFormToInitialState();
+        });
+      }
+
+      // 初始化编辑模态框
+      var editClientModalElement = document.getElementById('editClientModal');
+      if (editClientModalElement) {
+        editClientModalInstance = new bootstrap.Modal(editClientModalElement, {
+          backdrop: true,
+          keyboard: true
+        });
+
+        // 监听模态框关闭事件，重置表单
+        editClientModalElement.addEventListener('hidden.bs.modal', function () {
+          resetEditFormToInitialState();
+          hideEditClientError();
+        });
+      }
+
+      // 监听认证方式选择变化
+      var authMethodSelect = document.getElementById('clientAuthMethodSelect');
+      var authMethodDescText = document.getElementById('authMethodDescText');
+
+      if (authMethodSelect && authMethodDescText) {
+        authMethodSelect.addEventListener('change', function () {
+          var selectedValue = this.value;
+          var description = authMethodDescriptions[selectedValue] || '';
+          authMethodDescText.textContent = description;
+
+          // 根据认证方式控制表单字段显示
+          updateFormFieldsByAuthMethod(selectedValue);
+        });
+      }
+
+      // 初始化表单字段状态
+      updateFormFieldsByAuthMethod(authMethodSelect ? authMethodSelect.value : 'CLIENT_SECRET_BASIC');
+
+      // 监听授权模式选择变化
+      var grantTypeCheckboxes = document.querySelectorAll('input[name="authorizationGrantTypes"]');
+      grantTypeCheckboxes.forEach(function (checkbox) {
+        checkbox.addEventListener('change', function () {
+          updateRedirectUriVisibility();
+          updateGrantTypeDescriptions();
+          updateSecurityOptionsByGrantType(); // 新增：根据授权模式更新安全选项
+          updateTokenValidityByGrantType();   // 新增：根据授权模式更新 Token 有效期
+        });
+      });
+
+      // 初始化重定向 URI 显示状态
+      updateRedirectUriVisibility();
+      // 初始化安全选项显示状态
+      updateSecurityOptionsByGrantType();
+      // 初始化 Token 有效期显示状态
+      updateTokenValidityByGrantType();
+
+      // 初始化编辑模态框的认证方式监听
+      var editAuthMethodSelect = document.getElementById('edit_clientAuthMethodSelect');
+      var editAuthMethodDescText = document.getElementById('edit_authMethodDescText');
+
+      if (editAuthMethodSelect && editAuthMethodDescText) {
+        editAuthMethodSelect.addEventListener('change', function () {
+          var selectedValue = this.value;
+          var description = authMethodDescriptions[selectedValue] || '';
+          editAuthMethodDescText.textContent = description;
+
+          // 根据认证方式控制表单字段显示
+          updateEditFormFieldsByAuthMethod(selectedValue);
+        });
+      }
+
+      // 监听编辑模态框授权模式选择变化
+      var editGrantTypeCheckboxes = document.querySelectorAll('input[name="authorizationGrantTypes"]');
+      editGrantTypeCheckboxes.forEach(function (checkbox) {
+        checkbox.addEventListener('change', function () {
+          updateEditRedirectUriVisibility();
+          updateEditSecurityOptionsByGrantType();
+          updateEditTokenValidityByGrantType();
+        });
+      });
+
+      // 添加自定义 Scope 功能（编辑模态框）
+      var editAddCustomScopeBtn = document.getElementById('edit_addCustomScopeBtn');
+      var editCustomScopeInput = document.getElementById('edit_customScopeInput');
+
+      if (editAddCustomScopeBtn && editCustomScopeInput) {
+        editAddCustomScopeBtn.addEventListener('click', function () {
+          var scopeValue = editCustomScopeInput.value.trim();
+
+          if (!scopeValue) {
+            alert('请输入权限范围值');
+            return;
+          }
+
+          // 验证格式
+          if (!/^[a-zA-Z0-9._:-]+$/.test(scopeValue)) {
+            alert('权限范围只能包含字母、数字、点、下划线、连字符和冒号');
+            return;
+          }
+
+          // 检查是否已存在（包括预设和自定义）
+          var existingCheckboxes = document.querySelectorAll('input[name="scopes"]');
+          for (var i = 0; i < existingCheckboxes.length; i++) {
+            if (existingCheckboxes[i].value === scopeValue) {
+              alert('该权限范围已存在');
+              return;
+            }
+          }
+
+          // 检查是否已在自定义列表中
+          if (editCustomScopes.indexOf(scopeValue) !== -1) {
+            alert('该自定义权限范围已存在');
+            return;
+          }
+
+          // 添加到自定义列表
+          editCustomScopes.push(scopeValue);
+          editCustomScopeCounter++;
+
+          // 创建隐藏的 checkbox
+          var checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.name = 'scopes';
+          checkbox.value = scopeValue;
+          checkbox.id = 'edit_scope_custom_' + editCustomScopeCounter;
+          checkbox.checked = true;
+          checkbox.style.display = 'none';
+
+          // 添加到表单中
+          var scopesContainer = document.getElementById('edit_customScopesContainer').parentElement;
+          scopesContainer.appendChild(checkbox);
+
+          // 创建并添加标签
+          renderEditCustomScopes();
+
+          // 清空输入框
+          editCustomScopeInput.value = '';
+          editCustomScopeInput.focus();
+        });
+
+        // 支持按回车键添加
+        editCustomScopeInput.addEventListener('keypress', function (e) {
+          if (e.key === 'Enter') {
+            editAddCustomScopeBtn.click();
+          }
+        });
+      }
+    });
+
+    // 添加自定义 Scope 功能
+    var addCustomScopeBtn = document.getElementById('addCustomScopeBtn');
+    var customScopeInput = document.getElementById('customScopeInput');
+
+    if (addCustomScopeBtn && customScopeInput) {
+      addCustomScopeBtn.addEventListener('click', function () {
+        var scopeValue = customScopeInput.value.trim();
+
+        if (!scopeValue) {
+          alert('请输入权限范围值');
+          return;
+        }
+
+        // 验证格式
+        if (!/^[a-zA-Z0-9._:-]+$/.test(scopeValue)) {
+          alert('权限范围只能包含字母、数字、点、下划线、连字符和冒号');
+          return;
+        }
+
+        // 检查是否已存在（包括预设和自定义）
+        var existingCheckboxes = document.querySelectorAll('input[name="scopes"]');
+        for (var i = 0; i < existingCheckboxes.length; i++) {
+          if (existingCheckboxes[i].value === scopeValue) {
+            alert('该权限范围已存在');
+            return;
+          }
+        }
+
+        // 检查是否已在自定义列表中
+        if (customScopes.indexOf(scopeValue) !== -1) {
+          alert('该自定义权限范围已存在');
+          return;
+        }
+
+        // 添加到自定义列表
+        customScopes.push(scopeValue);
+        customScopeCounter++;
+
+        // 创建隐藏的 checkbox
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'scopes';
+        checkbox.value = scopeValue;
+        checkbox.id = 'scope_custom_' + customScopeCounter;
+        checkbox.checked = true;
+        checkbox.style.display = 'none';
+
+        // 添加到表单中
+        var scopesContainer = document.getElementById('customScopesContainer').parentElement;
+        scopesContainer.appendChild(checkbox);
+
+        // 创建并添加标签
+        renderCustomScopes();
+
+        // 清空输入框
+        customScopeInput.value = '';
+        customScopeInput.focus();
+      });
+
+      // 支持按回车键添加
+      customScopeInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+          addCustomScopeBtn.click();
+        }
+      });
+    }
+
+    // 渲染自定义 Scope 标签
+    function renderCustomScopes() {
+      var container = document.getElementById('customScopesContainer');
+      if (!container) return;
+
+      container.innerHTML = '';
+
+      customScopes.forEach(function (scope, index) {
+        var badge = document.createElement('span');
+        badge.className = 'badge bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center gap-2 px-3 py-2';
+        badge.style.borderRadius = '20px';
+        badge.style.fontSize = '0.85rem';
+        badge.innerHTML = '<i class="fas fa-check-circle"></i> ' + scope +
+          ' <i class="fas fa-times-circle ms-1" style="cursor: pointer; opacity: 0.6;" onclick="removeCustomScope(' + index + ')"></i>';
+        container.appendChild(badge);
+      });
+    }
+
+    // 删除自定义 Scope
+    function removeCustomScope(index) {
+      if (index < 0 || index >= customScopes.length) return;
+
+      var scopeToRemove = customScopes[index];
+
+      // 从数组中移除
+      customScopes.splice(index, 1);
+
+      // 从 DOM 中移除对应的 checkbox
+      var checkboxes = document.querySelectorAll('input[name="scopes"]');
+      for (var i = 0; i < checkboxes.length; i++) {
+        if (checkboxes[i].value === scopeToRemove) {
+          checkboxes[i].parentElement.removeChild(checkboxes[i]);
+          break;
+        }
+      }
+
+      // 重新渲染标签
+      renderCustomScopes();
+    }
+
+    // 打开编辑客户端模态框
+    function openEditClientModal(event, clientId) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // 调用 API 获取客户端详情
+      fetch('/admin/clients/detail/' + clientId)
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (client) {
+          // ⭐ 先显示模态框，并监听 shown 事件，在模态框完全打开后填充数据
+          var editClientModalElement = document.getElementById('editClientModal');
+
+          if (editClientModalInstance && editClientModalElement) {
+            // 定义一次性事件监听器
+            var onModalShown = function () {
+              fillEditForm(client);
+              // 立即移除监听器，避免重复执行
+              editClientModalElement.removeEventListener('shown.bs.modal', onModalShown);
+            };
+
+            // 添加监听器
+            editClientModalElement.addEventListener('shown.bs.modal', onModalShown);
+
+            // 显示模态框
+            editClientModalInstance.show();
+          }
+        })
+        .catch(function (error) {
+          console.error('获取客户端详情失败:', error);
+          alert('获取客户端详情失败：' + error.message);
+        });
+    }
+
+    // 填充编辑表单数据
+    function fillEditForm(client) {
+      // 1. 基本信息
+      var clientIdInput = document.getElementById('edit_clientId');
+      var clientIdDisplay = document.getElementById('edit_clientIdDisplay');
+      var clientNameInput = document.getElementById('edit_clientName');
+
+      if (clientIdInput) {
+        clientIdInput.value = client.clientId;
+      }
+      if (clientIdDisplay) {
+        clientIdDisplay.value = client.clientId;
+      }
+      if (clientNameInput) {
+        clientNameInput.value = client.clientName || client.clientId;
+      }
+
+      // 2. 客户端密钥
+      var secretInput = document.getElementById('edit_clientSecretDisplay');
+      if (secretInput) {
+        secretInput.value = client.clientSecret || '••••••••••••';
+      }
+
+      // 3. 认证方式
+      var authMethodSelect = document.getElementById('edit_clientAuthMethodSelect');
+      var authMethodDescText = document.getElementById('edit_authMethodDescText');
+
+      if (authMethodSelect) {
+        if (client.clientAuthenticationMethods && client.clientAuthenticationMethods.length > 0) {
+          var authMethod = client.clientAuthenticationMethods[0];
+          authMethodSelect.value = authMethod;
+
+          // 更新说明文本
+          if (authMethodDescText) {
+            var description = authMethodDescriptions[authMethod] || '';
+            authMethodDescText.textContent = description;
+          }
+
+          // 触发 change 事件以更新表单状态
+          authMethodSelect.dispatchEvent(new Event('change'));
+        } else {
+          // 如果没有认证方式数据，使用默认值
+          authMethodSelect.value = 'CLIENT_SECRET_BASIC';
+          if (authMethodDescText) {
+            authMethodDescText.textContent = authMethodDescriptions['CLIENT_SECRET_BASIC'];
+          }
+        }
+      }
+
+      // 4. 授权模式
+      var grantTypes = client.authorizationGrantTypes || [];
+      var authCodeCheckbox = document.getElementById('edit_auth_code');
+      var refreshTokenCheckbox = document.getElementById('edit_refresh_token');
+      var clientCredentialsCheckbox = document.getElementById('edit_client_credentials');
+
+      if (authCodeCheckbox) {
+        authCodeCheckbox.checked = grantTypes.indexOf('authorization_code') !== -1;
+      }
+      if (refreshTokenCheckbox) {
+        refreshTokenCheckbox.checked = grantTypes.indexOf('refresh_token') !== -1;
+      }
+      if (clientCredentialsCheckbox) {
+        clientCredentialsCheckbox.checked = grantTypes.indexOf('client_credentials') !== -1;
+      }
+
+      // 5. 重定向 URI
+      var redirectUriInput = document.getElementById('edit_redirectUriInput');
+      if (redirectUriInput && client.redirectUris && client.redirectUris.length > 0) {
+        redirectUriInput.value = client.redirectUris[0];
+      } else {
+        redirectUriInput.value = '';
+      }
+
+      // 6. 权限范围
+      var scopes = client.scopes || [];
+      // 重置所有预设 scope
+      ['openid', 'profile', 'email', 'api.read', 'api.write'].forEach(function (scopeName) {
+        var checkbox = document.getElementById('edit_scope_' + scopeName.replace('.', '_'));
+        if (checkbox) {
+          checkbox.checked = scopes.indexOf(scopeName) !== -1;
+        }
+      });
+
+      // 7. 自定义 scope
+      editCustomScopes = [];
+      scopes.forEach(function (scope) {
+        if (['openid', 'profile', 'email', 'api.read', 'api.write'].indexOf(scope) === -1) {
+          editCustomScopes.push(scope);
+        }
+      });
+      renderEditCustomScopes();
+
+      // 7. Token 有效期
+      var accessTokenTTLInput = document.getElementById('edit_accessTokenTTL');
+      var refreshTokenTTLInput = document.getElementById('edit_refreshTokenTTL');
+      if (accessTokenTTLInput) {
+        accessTokenTTLInput.value = client.accessTokenTTL || 2;
+      }
+      if (refreshTokenTTLInput) {
+        refreshTokenTTLInput.value = client.refreshTokenTTL || 7;
+      }
+
+      // 8. 安全选项
+      var requireConsentCheckbox = document.getElementById('edit_requireConsent');
+      var requireProofKeyCheckbox = document.getElementById('edit_requireProofKey');
+      if (requireConsentCheckbox) {
+        requireConsentCheckbox.checked = client.requireConsent || false;
+      }
+      if (requireProofKeyCheckbox) {
+        requireProofKeyCheckbox.checked = client.requireProofKey || false;
+      }
+
+      // 9. 初始化表单状态
+      updateEditRedirectUriVisibility();
+      updateEditSecurityOptionsByGrantType();
+      updateEditTokenValidityByGrantType();
+      updateEditFormFieldsByAuthMethod(client.clientAuthenticationMethods && client.clientAuthenticationMethods.length > 0 ? client.clientAuthenticationMethods[0] : 'CLIENT_SECRET_BASIC');
+    }
+
+    // 渲染编辑模态框的自定义 Scope 标签
+    function renderEditCustomScopes() {
+      var container = document.getElementById('edit_customScopesContainer');
+      if (!container) return;
+
+      container.innerHTML = '';
+
+      editCustomScopes.forEach(function (scope, index) {
+        var badge = document.createElement('span');
+        badge.className = 'badge bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center gap-2 px-3 py-2';
+        badge.style.borderRadius = '20px';
+        badge.style.fontSize = '0.85rem';
+        badge.innerHTML = '<i class="fas fa-check-circle"></i> ' + scope +
+          ' <i class="fas fa-times-circle ms-1" style="cursor: pointer; opacity: 0.6;" onclick="removeEditCustomScope(' + index + ')"></i>';
+        container.appendChild(badge);
+      });
+    }
+
+    // 删除编辑模态框的自定义 Scope
+    function removeEditCustomScope(index) {
+      if (index < 0 || index >= editCustomScopes.length) return;
+
+      var scopeToRemove = editCustomScopes[index];
+
+      // 从数组中移除
+      editCustomScopes.splice(index, 1);
+
+      // 从 DOM 中移除对应的 checkbox
+      var checkboxes = document.querySelectorAll('input[name="scopes"]');
+      for (var i = 0; i < checkboxes.length; i++) {
+        if (checkboxes[i].value === scopeToRemove) {
+          checkboxes[i].parentElement.removeChild(checkboxes[i]);
+          break;
+        }
+      }
+
+      // 重新渲染标签
+      renderEditCustomScopes();
+    }
+
+    // 根据认证方式更新编辑表单字段显示
+    function updateEditFormFieldsByAuthMethod(authMethod) {
+      var clientSecretSection = document.getElementById('edit_clientSecretSection');
+      var proofKeyCard = document.getElementById('edit_proofKeyCard');
+      var proofKeyCheckbox = document.getElementById('edit_requireProofKey');
+
+      // 1. 客户端密钥区域显示控制（编辑模式下始终显示提示信息）
+      if (clientSecretSection) {
+        clientSecretSection.style.display = 'block';
+      }
+
+      // 2. PKCE 控制逻辑
+      if (proofKeyCard && proofKeyCheckbox) {
+        if (authMethod === 'NONE') {
+          // 公开客户端：强制开启 PKCE，高亮显示
+          proofKeyCheckbox.checked = true;
+          proofKeyCheckbox.disabled = false;
+          proofKeyCard.classList.add('border-success');
+
+          // 修改提示文字
+          var smallText = proofKeyCard.querySelector('small');
+          if (smallText) {
+            smallText.innerHTML = '<i class="fas fa-exclamation-triangle me-1 text-warning"></i>公开客户端必须使用 PKCE 以保证安全';
+          }
+        } else {
+          // 保密客户端：PKCE 可选
+          proofKeyCard.classList.remove('border-success');
+
+          // 恢复提示文字
+          var smallText = proofKeyCard.querySelector('small');
+          if (smallText) {
+            smallText.textContent = '防止授权码拦截攻击，公开客户端推荐开启';
+          }
+        }
+      }
+    }
+
+    // 更新编辑模态框重定向 URI 显示状态
+    function updateEditRedirectUriVisibility() {
+      var authCodeCheckbox = document.getElementById('edit_auth_code');
+      var clientCredentialsCheckbox = document.getElementById('edit_client_credentials');
+      var redirectUriInput = document.getElementById('edit_redirectUriInput');
+      var redirectUriRequired = document.getElementById('edit_redirectUriRequired');
+
+      if (!redirectUriInput || !redirectUriRequired) return;
+
+      // 如果选择了授权码模式，显示重定向 URI 并设为必填
+      if (authCodeCheckbox && authCodeCheckbox.checked) {
+        redirectUriInput.parentElement.parentElement.style.display = 'block';
+        redirectUriInput.required = true;
+        redirectUriRequired.style.display = 'inline';
+        redirectUriInput.classList.remove('bg-secondary', 'bg-light');
+        redirectUriInput.classList.add('bg-light');
+      }
+      // 如果只选择了客户端凭证模式，隐藏并重定向 URI 设为非必填
+      else if (clientCredentialsCheckbox && clientCredentialsCheckbox.checked) {
+        redirectUriInput.parentElement.parentElement.style.display = 'none';
+        redirectUriInput.required = false;
+        redirectUriRequired.style.display = 'none';
+        redirectUriInput.value = '';
+      }
+      // 其他情况，显示但设为非必填
+      else {
+        redirectUriInput.parentElement.parentElement.style.display = 'block';
+        redirectUriInput.required = false;
+        redirectUriRequired.style.display = 'none';
+      }
+    }
+
+    // 根据授权模式更新编辑模态框安全选项显示
+    function updateEditSecurityOptionsByGrantType() {
+      var authCodeCheckbox = document.getElementById('edit_auth_code');
+      var clientCredentialsCheckbox = document.getElementById('edit_client_credentials');
+      var redirectUriContainer = document.getElementById('edit_redirectUriContainer');
+      var securityOptionsContainer = document.getElementById('edit_securityOptionsContainer');
+      var requireConsentCard = document.getElementById('edit_requireConsentCard');
+      var proofKeyCard = document.getElementById('edit_proofKeyCard');
+      var requireConsentCheckbox = document.getElementById('edit_requireConsent');
+      var proofKeyCheckbox = document.getElementById('edit_requireProofKey');
+
+      // 1. 重定向 URI 显示逻辑
+      if (redirectUriContainer) {
+        var redirectUriInput = document.getElementById('edit_redirectUriInput');
+        var redirectUriRequired = document.getElementById('edit_redirectUriRequired');
+
+        if (authCodeCheckbox && authCodeCheckbox.checked) {
+          // 授权码模式：显示重定向 URI
+          redirectUriContainer.style.display = 'block';
+          if (redirectUriInput) redirectUriInput.required = true;
+          if (redirectUriRequired) redirectUriRequired.style.display = 'inline';
+        } else if (clientCredentialsCheckbox && clientCredentialsCheckbox.checked) {
+          // 客户端凭证模式：隐藏重定向 URI
+          redirectUriContainer.style.display = 'none';
+          if (redirectUriInput) redirectUriInput.required = false;
+          if (redirectUriRequired) redirectUriRequired.style.display = 'none';
+          if (redirectUriInput) redirectUriInput.value = '';
+        } else {
+          // 其他模式：显示但不强制
+          redirectUriContainer.style.display = 'block';
+          if (redirectUriInput) redirectUriInput.required = false;
+          if (redirectUriRequired) redirectUriRequired.style.display = 'none';
+        }
+      }
+
+      // 2. 安全选项显示逻辑
+      if (securityOptionsContainer) {
+        // 只选择了客户端凭证模式
+        var onlyClientCredentials = clientCredentialsCheckbox &&
+          clientCredentialsCheckbox.checked &&
+          (!authCodeCheckbox || !authCodeCheckbox.checked);
+
+        if (onlyClientCredentials) {
+          // 客户端凭证模式：隐藏所有安全选项
+          securityOptionsContainer.style.display = 'none';
+
+          // 清空相关选项
+          if (requireConsentCheckbox) {
+            requireConsentCheckbox.checked = false;
+            requireConsentCheckbox.disabled = true;
+          }
+          if (proofKeyCheckbox) {
+            proofKeyCheckbox.checked = false;
+            proofKeyCheckbox.disabled = true;
+          }
+        } else {
+          // 其他模式：显示安全选项
+          securityOptionsContainer.style.display = 'block';
+
+          // 启用用户授权确认选项
+          if (requireConsentCard) {
+            requireConsentCard.style.display = 'block';
+            if (requireConsentCheckbox) {
+              requireConsentCheckbox.disabled = false;
+            }
+          }
+
+          // PKCE 选项根据认证方式决定
+          if (proofKeyCard && proofKeyCheckbox) {
+            var authMethodSelect = document.getElementById('edit_clientAuthMethodSelect');
+            if (authMethodSelect && authMethodSelect.value === 'NONE') {
+              // 公开客户端：强制 PKCE
+              proofKeyCheckbox.checked = true;
+              proofKeyCheckbox.disabled = false;
+              proofKeyCard.classList.add('border-success');
+            } else if (authCodeCheckbox && authCodeCheckbox.checked) {
+              // 授权码模式：PKCE 可选
+              proofKeyCard.style.display = 'block';
+              proofKeyCheckbox.disabled = false;
+              proofKeyCard.classList.remove('border-success');
+            } else {
+              // 其他情况：隐藏 PKCE
+              proofKeyCard.style.display = 'none';
+              proofKeyCheckbox.checked = false;
+            }
+          }
+        }
+      }
+    }
+
+    // 根据授权模式更新编辑模态框 Token 有效期显示
+    function updateEditTokenValidityByGrantType() {
+      var refreshTokenCheckbox = document.getElementById('edit_refresh_token');
+      var refreshTokenTTLContainer = document.getElementById('edit_refreshTokenTTLContainer');
+      var tokenValidityContainer = document.getElementById('edit_tokenValidityContainer');
+      var accessTokenTTLInput = document.getElementById('edit_accessTokenTTL');
+      var refreshTokenTTLInput = document.getElementById('edit_refreshTokenTTL');
+
+      // Access Token 有效期：始终显示（所有授权模式都需要）
+      if (tokenValidityContainer && accessTokenTTLInput) {
+        tokenValidityContainer.style.display = 'flex'; // 保持容器显示
+      }
+
+      // Refresh Token 有效期：仅在选中 refresh_token 模式时显示
+      if (refreshTokenTTLContainer && refreshTokenTTLInput) {
+        if (refreshTokenCheckbox && refreshTokenCheckbox.checked) {
+          // 选中 refresh_token：显示并启用
+          refreshTokenTTLContainer.style.display = 'block';
+          refreshTokenTTLContainer.classList.remove('hidden');
+          refreshTokenTTLInput.disabled = false;
+
+          // 添加提示标签
+          var label = refreshTokenTTLContainer.querySelector('label');
+          if (label && label.innerHTML.indexOf('<i') === -1) {
+            label.innerHTML = '<i class="fas fa-sync me-1 text-success"></i>Refresh Token 有效期 <span class="badge bg-success ms-1">已启用</span>';
+          }
+        } else {
+          // 未选中 refresh_token：隐藏并禁用
+          refreshTokenTTLContainer.style.display = 'none';
+          refreshTokenTTLContainer.classList.add('hidden');
+          refreshTokenTTLInput.disabled = true;
+          refreshTokenTTLInput.value = '7'; // 恢复默认值
+
+          // 恢复标签文字
+          var label = refreshTokenTTLContainer.querySelector('label');
+          if (label) {
+            label.innerHTML = 'Refresh Token 有效期';
+          }
+        }
+      }
+    }
+
+    // 重置编辑表单到初始状态
+    function resetEditFormToInitialState() {
+      // 1. 重置表单数据
+      var form = document.querySelector('#editClientModal form');
+      if (form) {
+        form.reset();
+      }
+
+      // 2. 重置自定义 Scope
+      editCustomScopes = [];
+      editCustomScopeCounter = 0;
+      var editCustomScopesContainer = document.getElementById('edit_customScopesContainer');
+      if (editCustomScopesContainer) {
+        editCustomScopesContainer.innerHTML = '';
+      }
+
+      // 3. 重置认证方式选择为默认值
+      var authMethodSelect = document.getElementById('edit_clientAuthMethodSelect');
+      var authMethodDescText = document.getElementById('edit_authMethodDescText');
+      if (authMethodSelect) {
+        authMethodSelect.value = 'CLIENT_SECRET_BASIC';
+        if (authMethodDescText) {
+          authMethodDescText.textContent = authMethodDescriptions['CLIENT_SECRET_BASIC'];
+        }
+      }
+
+      // 4. 重置授权模式复选框
+      var authCodeCheckbox = document.getElementById('edit_auth_code');
+      var refreshTokenCheckbox = document.getElementById('edit_refresh_token');
+      var clientCredentialsCheckbox = document.getElementById('edit_client_credentials');
+
+      if (authCodeCheckbox) authCodeCheckbox.checked = false;
+      if (refreshTokenCheckbox) refreshTokenCheckbox.checked = false;
+      if (clientCredentialsCheckbox) clientCredentialsCheckbox.checked = false;
+
+      // 5. 清空重定向 URI
+      var redirectUriInput = document.getElementById('edit_redirectUriInput');
+      var redirectUriRequired = document.getElementById('edit_redirectUriRequired');
+      if (redirectUriInput) {
+        redirectUriInput.value = '';
+        redirectUriInput.required = false;
+      }
+      if (redirectUriRequired) {
+        redirectUriRequired.style.display = 'none';
+      }
+
+      // 6. 恢复 Token 有效期配置
+      var refreshTokenTTLContainer = document.getElementById('edit_refreshTokenTTLContainer');
+      var refreshTokenTTLInput = document.getElementById('edit_refreshTokenTTL');
+
+      if (refreshTokenTTLContainer) {
+        refreshTokenTTLContainer.style.display = 'block';
+        refreshTokenTTLContainer.classList.add('hidden');
+      }
+      if (refreshTokenTTLInput) {
+        refreshTokenTTLInput.value = '7';
+        refreshTokenTTLInput.disabled = true;
+        var label = refreshTokenTTLContainer.querySelector('label');
+        if (label) {
+          label.innerHTML = 'Refresh Token 有效期';
+        }
+      }
+
+      // 7. 恢复安全选项
+      var securityOptionsContainer = document.getElementById('edit_securityOptionsContainer');
+      var requireConsentCard = document.getElementById('edit_requireConsentCard');
+      var requireConsentCheckbox = document.getElementById('edit_requireConsent');
+      var proofKeyCard = document.getElementById('edit_proofKeyCard');
+      var proofKeyCheckbox = document.getElementById('edit_requireProofKey');
+
+      if (securityOptionsContainer) {
+        securityOptionsContainer.style.display = 'block';
+      }
+      if (requireConsentCard) {
+        requireConsentCard.style.display = 'block';
+      }
+      if (requireConsentCheckbox) {
+        requireConsentCheckbox.checked = false;
+        requireConsentCheckbox.disabled = false;
+      }
+      if (proofKeyCard) {
+        proofKeyCard.classList.remove('border-success');
+        proofKeyCard.style.display = 'block';
+      }
+      if (proofKeyCheckbox) {
+        proofKeyCheckbox.checked = false;
+        proofKeyCheckbox.disabled = false;
+        var smallText = proofKeyCard.querySelector('small');
+        if (smallText) {
+          smallText.textContent = '防止授权码拦截攻击，公开客户端推荐开启';
+        }
+      }
+
+      // 8. 重新初始化所有动态控制函数
+      updateEditRedirectUriVisibility();
+      updateEditSecurityOptionsByGrantType();
+      updateEditTokenValidityByGrantType();
+      updateEditFormFieldsByAuthMethod('CLIENT_SECRET_BASIC');
+    }
+
+    // 更新重定向 URI 显示状态
+    function updateRedirectUriVisibility() {
+      var authCodeCheckbox = document.getElementById('auth_code');
+      var clientCredentialsCheckbox = document.getElementById('client_credentials');
+      var redirectUriInput = document.getElementById('redirectUriInput');
+      var redirectUriRequired = document.getElementById('redirectUriRequired');
+
+      if (!redirectUriInput || !redirectUriRequired) return;
+
+      // 如果选择了授权码模式，显示重定向 URI 并设为必填
+      if (authCodeCheckbox && authCodeCheckbox.checked) {
+        redirectUriInput.parentElement.parentElement.style.display = 'block';
+        redirectUriInput.required = true;
+        redirectUriRequired.style.display = 'inline';
+        redirectUriInput.classList.remove('bg-secondary', 'bg-light');
+        redirectUriInput.classList.add('bg-light');
+      }
+      // 如果只选择了客户端凭证模式，隐藏并重定向 URI 设为非必填
+      else if (clientCredentialsCheckbox && clientCredentialsCheckbox.checked) {
+        redirectUriInput.parentElement.parentElement.style.display = 'none';
+        redirectUriInput.required = false;
+        redirectUriRequired.style.display = 'none';
+        redirectUriInput.value = '';
+      }
+      // 其他情况，显示但设为非必填
+      else {
+        redirectUriInput.parentElement.parentElement.style.display = 'block';
+        redirectUriInput.required = false;
+        redirectUriRequired.style.display = 'none';
+      }
+    }
+
+    // 更新授权模式说明
+    function updateGrantTypeDescriptions() {
+      // 为每个授权模式复选框添加说明
+      var grantTypes = ['auth_code', 'refresh_token', 'client_credentials'];
+      grantTypes.forEach(function (id) {
+        var checkbox = document.getElementById(id);
+        if (!checkbox) return;
+
+        var descriptionDiv = checkbox.parentElement.parentElement.querySelector('.text-muted');
+        if (!descriptionDiv) return;
+
+        var grantType = checkbox.value;
+        var description = grantTypeDescriptions[grantType] || '';
+
+        // 如果已存在说明则更新，否则添加
+        if (descriptionDiv.textContent.indexOf(':') === -1) {
+          descriptionDiv.textContent = description;
+        }
+
+        // 根据选中状态设置样式
+        if (checkbox.checked) {
+          descriptionDiv.classList.add('text-success');
+          descriptionDiv.classList.remove('text-muted');
+        } else {
+          descriptionDiv.classList.remove('text-success');
+          descriptionDiv.classList.add('text-muted');
+        }
+      });
+    }
+
+    // 根据认证方式更新表单字段显示
+    function updateFormFieldsByAuthMethod(authMethod) {
+      var clientSecretSection = document.getElementById('clientSecretSection');
+      var proofKeyCard = document.getElementById('proofKeyCard');
+      var proofKeyCheckbox = document.getElementById('requireProofKey');
+      var generateClientSecretCheckbox = document.getElementById('generateClientSecret');
+      var clientSecretDescription = document.getElementById('clientSecretDescription');
+
+      // 1. 客户端密钥区域显示控制
+      if (clientSecretSection) {
+        if (authMethod === 'NONE') {
+          // 公开客户端：不显示密钥配置
+          clientSecretSection.style.display = 'none';
+          generateClientSecretCheckbox.disabled = true;
+        } else {
+          // 保密客户端：显示密钥配置并强制启用
+          clientSecretSection.style.display = 'block';
+          generateClientSecretCheckbox.checked = true;  // 强制勾选
+          generateClientSecretCheckbox.disabled = true; // 不允许取消
+
+          // 更新提示文字为必填说明
+          if (clientSecretDescription) {
+            clientSecretDescription.innerHTML = '<i class="fas fa-check-circle me-1 text-success"></i>保密客户端必须生成密钥，系统将自动生成';
+          }
+        }
+      }
+
+      // 2. PKCE 控制逻辑
+      if (proofKeyCard && proofKeyCheckbox) {
+        if (authMethod === 'NONE') {
+          // 公开客户端：强制开启 PKCE，高亮显示
+          proofKeyCheckbox.checked = true;
+          proofKeyCheckbox.disabled = false; // 允许用户取消（但推荐开启）
+          proofKeyCard.classList.add('border-success');
+
+          // 修改提示文字
+          var smallText = proofKeyCard.querySelector('small');
+          if (smallText) {
+            smallText.innerHTML = '<i class="fas fa-exclamation-triangle me-1 text-warning"></i>公开客户端必须使用 PKCE 以保证安全';
+          }
+        } else {
+          // 保密客户端：PKCE 可选
+          proofKeyCard.classList.remove('border-success');
+
+          // 恢复提示文字
+          var smallText = proofKeyCard.querySelector('small');
+          if (smallText) {
+            smallText.textContent = '防止授权码拦截攻击，公开客户端推荐开启';
+          }
+        }
+      }
+
+      // 3. 授权模式建议调整
+      if (authMethod === 'NONE') {
+        // 公开客户端：建议使用授权码模式
+        var clientCredentialsCheckbox = document.getElementById('client_credentials');
+        if (clientCredentialsCheckbox && clientCredentialsCheckbox.checked) {
+          // 如果选择了客户端凭证模式，给出提示
+          console.warn('公开客户端不建议使用客户端凭证模式');
+        }
+      }
+    }
+
+    // 根据授权模式更新安全选项显示
+    function updateSecurityOptionsByGrantType() {
+      var authCodeCheckbox = document.getElementById('auth_code');
+      var clientCredentialsCheckbox = document.getElementById('client_credentials');
+      var redirectUriContainer = document.getElementById('redirectUriContainer');
+      var securityOptionsContainer = document.getElementById('securityOptionsContainer');
+      var requireConsentCard = document.getElementById('requireConsentCard');
+      var proofKeyCard = document.getElementById('proofKeyCard');
+      var requireConsentCheckbox = document.getElementById('requireConsent');
+      var proofKeyCheckbox = document.getElementById('requireProofKey');
+
+      // 1. 重定向 URI 显示逻辑
+      if (redirectUriContainer) {
+        if (authCodeCheckbox && authCodeCheckbox.checked) {
+          // 授权码模式：显示重定向 URI
+          redirectUriContainer.style.display = 'block';
+          document.getElementById('redirectUriInput').required = true;
+          document.getElementById('redirectUriRequired').style.display = 'inline';
+        } else if (clientCredentialsCheckbox && clientCredentialsCheckbox.checked) {
+          // 客户端凭证模式：隐藏重定向 URI
+          redirectUriContainer.style.display = 'none';
+          document.getElementById('redirectUriInput').required = false;
+          document.getElementById('redirectUriRequired').style.display = 'none';
+          document.getElementById('redirectUriInput').value = '';
+        } else {
+          // 其他模式：显示但不强制
+          redirectUriContainer.style.display = 'block';
+          document.getElementById('redirectUriInput').required = false;
+          document.getElementById('redirectUriRequired').style.display = 'none';
+        }
+      }
+
+      // 2. 安全选项显示逻辑
+      if (securityOptionsContainer) {
+        // 只选择了客户端凭证模式
+        var onlyClientCredentials = clientCredentialsCheckbox &&
+          clientCredentialsCheckbox.checked &&
+          (!authCodeCheckbox || !authCodeCheckbox.checked);
+
+        if (onlyClientCredentials) {
+          // 客户端凭证模式：隐藏所有安全选项
+          securityOptionsContainer.style.display = 'none';
+
+          // 清空相关选项
+          if (requireConsentCheckbox) {
+            requireConsentCheckbox.checked = false;
+            requireConsentCheckbox.disabled = true;
+          }
+          if (proofKeyCheckbox) {
+            proofKeyCheckbox.checked = false;
+            proofKeyCheckbox.disabled = true;
+          }
+        } else {
+          // 其他模式：显示安全选项
+          securityOptionsContainer.style.display = 'block';
+
+          // 启用用户授权确认选项
+          if (requireConsentCard) {
+            requireConsentCard.style.display = 'block';
+            if (requireConsentCheckbox) {
+              requireConsentCheckbox.disabled = false;
+            }
+          }
+
+          // PKCE 选项根据认证方式决定
+          if (proofKeyCard && proofKeyCheckbox) {
+            var authMethodSelect = document.getElementById('clientAuthMethodSelect');
+            if (authMethodSelect && authMethodSelect.value === 'NONE') {
+              // 公开客户端：强制 PKCE
+              proofKeyCheckbox.checked = true;
+              proofKeyCheckbox.disabled = false;
+              proofKeyCard.classList.add('border-success');
+            } else if (authCodeCheckbox && authCodeCheckbox.checked) {
+              // 授权码模式：PKCE 可选
+              proofKeyCard.style.display = 'block';
+              proofKeyCheckbox.disabled = false;
+              proofKeyCard.classList.remove('border-success');
+            } else {
+              // 其他情况：隐藏 PKCE
+              proofKeyCard.style.display = 'none';
+              proofKeyCheckbox.checked = false;
+            }
+          }
+        }
+      }
+    }
+
+    // 根据授权模式更新 Token有效期显示
+    function updateTokenValidityByGrantType() {
+      var refreshTokenCheckbox = document.getElementById('refresh_token');
+      var refreshTokenTTLContainer = document.getElementById('refreshTokenTTLContainer');
+      var tokenValidityContainer = document.getElementById('tokenValidityContainer');
+      var accessTokenTTLInput = document.querySelector('input[name="accessTokenTTL"]');
+      var refreshTokenTTLInput = document.querySelector('input[name="refreshTokenTTL"]');
+
+      // Access Token有效期：始终显示（所有授权模式都需要）
+      if (tokenValidityContainer && accessTokenTTLInput) {
+        tokenValidityContainer.style.display = 'flex'; // 保持容器显示
+      }
+
+      // Refresh Token有效期：仅在选中 refresh_token 模式时显示
+      if (refreshTokenTTLContainer && refreshTokenTTLInput) {
+        if (refreshTokenCheckbox && refreshTokenCheckbox.checked) {
+          // 选中 refresh_token：显示并启用
+          refreshTokenTTLContainer.style.display = 'block';
+          refreshTokenTTLContainer.classList.remove('hidden');
+          refreshTokenTTLInput.disabled = false;
+
+          // 添加提示标签
+          var label = refreshTokenTTLContainer.querySelector('label');
+          if (label && label.innerHTML.indexOf('<i') === -1) {
+            label.innerHTML = '<i class="fas fa-sync me-1 text-success"></i>Refresh Token有效期 <span class="badge bg-success ms-1">已启用</span>';
+          }
+        } else {
+          // 未选中 refresh_token：隐藏并禁用
+          refreshTokenTTLContainer.style.display = 'none';
+          refreshTokenTTLContainer.classList.add('hidden');
+          refreshTokenTTLInput.disabled = true;
+          refreshTokenTTLInput.value = '7'; // 恢复默认值
+
+          // 恢复标签文字
+          var label = refreshTokenTTLContainer.querySelector('label');
+          if (label) {
+            label.innerHTML = 'Refresh Token有效期';
+          }
+        }
+      }
+    }
+
+    // 重置表单到初始状态
+    function resetFormToInitialState() {
+      // 1. 重置表单数据
+      var form = document.querySelector('#addClientModal form');
+      if (form) {
+        form.reset();
+      }
+
+      // 2. 重置自定义 Scope
+      customScopes = [];
+      customScopeCounter = 0;
+      var customScopesContainer = document.getElementById('customScopesContainer');
+      if (customScopesContainer) {
+        customScopesContainer.innerHTML = '';
+      }
+
+      // 3. 重置认证方式选择为默认值
+      var authMethodSelect = document.getElementById('clientAuthMethodSelect');
+      var authMethodDescText = document.getElementById('authMethodDescText');
+      if (authMethodSelect) {
+        authMethodSelect.value = 'CLIENT_SECRET_BASIC';
+        if (authMethodDescText) {
+          authMethodDescText.textContent = authMethodDescriptions['CLIENT_SECRET_BASIC'];
+        }
+      }
+
+      // 4. 重置授权模式复选框（只保留 authorization_code 勾选）
+      var authCodeCheckbox = document.getElementById('auth_code');
+      var refreshTokenCheckbox = document.getElementById('refresh_token');
+      var clientCredentialsCheckbox = document.getElementById('client_credentials');
+
+      if (authCodeCheckbox) authCodeCheckbox.checked = true;
+      if (refreshTokenCheckbox) refreshTokenCheckbox.checked = false;
+      if (clientCredentialsCheckbox) clientCredentialsCheckbox.checked = false;
+
+      // 5. 恢复授权模式说明文字样式
+      var grantTypes = ['auth_code', 'refresh_token', 'client_credentials'];
+      grantTypes.forEach(function (id) {
+        var checkbox = document.getElementById(id);
+        if (checkbox) {
+          var descriptionDiv = checkbox.parentElement.parentElement.querySelector('.text-muted');
+          if (descriptionDiv) {
+            descriptionDiv.textContent = '';
+            if (checkbox.checked) {
+              descriptionDiv.classList.add('text-success');
+              descriptionDiv.classList.remove('text-muted');
+            } else {
+              descriptionDiv.classList.remove('text-success');
+              descriptionDiv.classList.add('text-muted');
+            }
+          }
+        }
+      });
+
+      // 调用 updateGrantTypeDescriptions 更新说明文字
+      updateGrantTypeDescriptions();
+
+      // 6. 清空重定向 URI
+      var redirectUriInput = document.getElementById('redirectUriInput');
+      var redirectUriRequired = document.getElementById('redirectUriRequired');
+      if (redirectUriInput) {
+        redirectUriInput.value = '';
+        redirectUriInput.required = true;
+      }
+      if (redirectUriRequired) {
+        redirectUriRequired.style.display = 'inline';
+      }
+
+      // 7. 恢复客户端密钥配置显示
+      var clientSecretSection = document.getElementById('clientSecretSection');
+      var generateClientSecretCheckbox = document.getElementById('generateClientSecret');
+      var clientSecretDescription = document.getElementById('clientSecretDescription');
+
+      if (clientSecretSection) {
+        clientSecretSection.style.display = 'block';
+      }
+      if (generateClientSecretCheckbox) {
+        generateClientSecretCheckbox.checked = true;
+        generateClientSecretCheckbox.disabled = true;
+      }
+      if (clientSecretDescription) {
+        clientSecretDescription.innerHTML = '<i class="fas fa-check-circle me-1 text-success"></i>保密客户端必须生成密钥，系统将自动生成';
+      }
+
+      // 8. 恢复 PKCE 配置
+      var proofKeyCard = document.getElementById('proofKeyCard');
+      var proofKeyCheckbox = document.getElementById('requireProofKey');
+
+      if (proofKeyCard) {
+        proofKeyCard.classList.remove('border-success');
+      }
+      if (proofKeyCheckbox) {
+        proofKeyCheckbox.checked = false;
+        proofKeyCheckbox.disabled = false;
+        var smallText = proofKeyCard.querySelector('small');
+        if (smallText) {
+          smallText.textContent = '防止授权码拦截攻击，公开客户端推荐开启';
+        }
+      }
+
+      // 9. 恢复安全选项显示
+      var securityOptionsContainer = document.getElementById('securityOptionsContainer');
+      var requireConsentCard = document.getElementById('requireConsentCard');
+      var requireConsentCheckbox = document.getElementById('requireConsent');
+
+      if (securityOptionsContainer) {
+        securityOptionsContainer.style.display = 'block';
+      }
+      if (requireConsentCard) {
+        requireConsentCard.style.display = 'block';
+      }
+      if (requireConsentCheckbox) {
+        requireConsentCheckbox.checked = true;
+        requireConsentCheckbox.disabled = false;
+      }
+
+      // 10. 恢复 Token有效期配置
+      var refreshTokenTTLContainer = document.getElementById('refreshTokenTTLContainer');
+      var refreshTokenTTLInput = document.querySelector('input[name="refreshTokenTTL"]');
+
+      if (refreshTokenTTLContainer) {
+        refreshTokenTTLContainer.style.display = 'block';
+        refreshTokenTTLContainer.classList.add('hidden');
+      }
+      if (refreshTokenTTLInput) {
+        refreshTokenTTLInput.value = '7';
+        refreshTokenTTLInput.disabled = true;
+        var label = refreshTokenTTLContainer.querySelector('label');
+        if (label) {
+          label.innerHTML = 'Refresh Token有效期';
+        }
+      }
+
+      // 11. 重新初始化所有动态控制函数
+      updateRedirectUriVisibility();
+      updateSecurityOptionsByGrantType();
+      updateTokenValidityByGrantType();
+    }
+
+    function openAddClientModal() {
+      if (addClientModalInstance) {
+        addClientModalInstance.show();
+      }
+    }
+
+    // 暴露给全局作用域，供 onclick 调用
+    window.openEditClientModal = openEditClientModal;
+
+    // 切换密码显示/隐藏
+    window.toggleSecretVisibility = function () {
+      var secretInput = document.getElementById('edit_clientSecretDisplay');
+      var toggleIcon = document.getElementById('toggleSecretIcon');
+
+      if (secretInput && toggleIcon) {
+        if (secretInput.type === 'password') {
+          secretInput.type = 'text';
+          toggleIcon.className = 'fas fa-eye-slash';
+        } else {
+          secretInput.type = 'password';
+          toggleIcon.className = 'fas fa-eye';
+        }
+      }
+    };
+  </script>
+</body>
+
+</html>

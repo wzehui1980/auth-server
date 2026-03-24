@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>审计日志 - SSO 认证中心</title>
+  <link rel="preconnect" href="https://cdn.staticfile.org">
+  <link href="https://cdn.staticfile.org/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.staticfile.org/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar-width: 260px;
+      --topbar-height: 70px;
+      --primary-color: #4f46e5;
+      --secondary-color: #64748b;
+      --bg-color: #f8fafc;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: #1e293b;
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      background: #1e293b;
+      color: white;
+      z-index: 1000;
+      transition: all 0.3s;
+    }
+
+    .sidebar-header {
+      height: var(--topbar-height);
+      display: flex;
+      align-items: center;
+      padding: 0 25px;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-link {
+      color: #94a3b8;
+      padding: 12px 25px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+      border-left: 4px solid transparent;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      color: white;
+      background: rgba(255, 255, 255, 0.05);
+      border-left-color: var(--primary-color);
+    }
+
+    .nav-link i {
+      width: 20px;
+      text-align: center;
+    }
+
+    .main-content {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+    }
+
+    .topbar {
+      height: var(--topbar-height);
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .content-body {
+      padding: 30px;
+    }
+
+
+
+    .logout-btn {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-weight: 500;
+    }
+
+    .filter-card {
+      background: white;
+      border: none;
+      border-radius: 15px;
+      padding: 20px 25px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .table-card {
+      background: white;
+      border: none;
+      border-radius: 15px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .table th {
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--secondary-color);
+    }
+
+    .table td {
+      vertical-align: middle;
+      font-size: 0.875rem;
+    }
+
+    .badge-op-create {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-op-update {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+
+    .badge-op-delete {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+
+    .badge-op-login {
+      background-color: #f3e8ff;
+      color: #6b21a8;
+    }
+
+    .badge-op-logout {
+      background-color: #f1f5f9;
+      color: #475569;
+    }
+
+    .badge-op-login_fail {
+      background-color: #ffedd5;
+      color: #9a3412;
+    }
+
+    .badge-op-assign {
+      background-color: #ccfbf1;
+      color: #115e59;
+    }
+
+    .badge-op-revoke {
+      background-color: #fce7f3;
+      color: #9d174d;
+    }
+
+    .description-cell {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ip-cell {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+    }
+
+    .pagination .page-link {
+      border-radius: 8px;
+      margin: 0 2px;
+      border: none;
+      color: var(--secondary-color);
+    }
+
+    .pagination .page-item.active .page-link {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--secondary-color);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      opacity: 0.3;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h5 class="mb-0 fw-bold text-white"><i class="fas fa-shield-halved me-2 text-primary"></i>认证中心</h5>
+    </div>
+    <div class="mt-4">
+      <a href="/admin/dashboard" class="nav-link">
+        <i class="fas fa-chart-line"></i> 仪表盘
+      </a>
+      <a href="/admin/users" class="nav-link">
+        <i class="fas fa-users-cog"></i> 用户管理
+      </a>
+      <a href="/admin/roles" class="nav-link">
+        <i class="fas fa-user-shield"></i> 角色管理
+      </a>
+      <a href="/admin/clients" class="nav-link">
+        <i class="fas fa-project-diagram"></i> 客户端管理
+      </a>
+      <a href="/admin/audit-logs" class="nav-link active">
+        <i class="fas fa-history"></i> 审计日志
+      </a>
+      <a href="#" class="nav-link">
+        <i class="fas fa-sliders"></i> 系统设置
+      </a>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item text-muted">管理后台</li>
+          <li class="breadcrumb-item active" aria-current="page">审计日志</li>
+        </ol>
+      </nav>
+      <div class="d-flex align-items-center gap-3">
+        <div class="text-end d-none d-sm-block">
+          <div class="fw-semibold small" sec:authentication="name">Admin</div>
+          <div class="text-muted" style="font-size: 0.75rem;">超级管理员</div>
+        </div>
+        <div class="vr mx-2"></div>
+        <form th:action="@{/logout}" method="post">
+          <button type="submit" class="logout-btn small">
+            <i class="fas fa-sign-out-alt me-1"></i> 退出
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Content Body -->
+    <div class="content-body">
+      <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+          <h4 class="fw-bold mb-1">审计日志</h4>
+          <p class="text-muted mb-0">查看系统操作记录和安全事件</p>
+        </div>
+      </div>
+
+      <!-- Statistics Cards -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-3">
+          <div class="row g-3">
+            <div class="col-6 col-lg-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="bg-primary bg-opacity-10 rounded-3 p-2">
+                  <i class="fas fa-list-alt text-primary fs-4"></i>
+                </div>
+                <div>
+                  <div class="small text-muted mb-1">总操作数</div>
+                  <div class="fs-5 fw-bold text-primary" th:text="${statistics != null ? statistics['totalCount'] : 0}">
+                    0</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="bg-success bg-opacity-10 rounded-3 p-2">
+                  <i class="fas fa-calendar-day text-success fs-4"></i>
+                </div>
+                <div>
+                  <div class="small text-muted mb-1">今日操作</div>
+                  <div class="fs-5 fw-bold text-success" th:text="${statistics != null ? statistics['todayCount'] : 0}">
+                    0</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="bg-danger bg-opacity-10 rounded-3 p-2">
+                  <i class="fas fa-exclamation-triangle text-danger fs-4"></i>
+                </div>
+                <div>
+                  <div class="small text-muted mb-1">失败操作</div>
+                  <div class="fs-5 fw-bold text-danger"
+                    th:text="${statistics != null ? statistics['failureCount'] : 0}">0</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="bg-info bg-opacity-10 rounded-3 p-2">
+                  <i class="fas fa-sign-in-alt text-info fs-4"></i>
+                </div>
+                <div>
+                  <div class="small text-muted mb-1">登录次数</div>
+                  <div class="fs-5 fw-bold text-info" th:text="${statistics != null ? statistics['loginCount'] : 0}">0
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter -->
+      <div class="filter-card">
+        <form method="get" th:action="@{/admin/audit-logs}">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+              <label class="form-label small text-muted">操作人</label>
+              <input type="text" class="form-control form-control-sm" name="operator" th:value="${operator}"
+                placeholder="用户名">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small text-muted">操作类型</label>
+              <select class="form-select form-select-sm" name="operationType">
+                <option value="">全部</option>
+                <option th:each="op : ${operationTypes}" th:value="${op.name()}" th:text="${op.description}"
+                  th:selected="${operationType != null and operationType == op.name()}">
+                </option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small text-muted">模块</label>
+              <select class="form-select form-select-sm" name="module">
+                <option value="">全部</option>
+                <option th:each="mod2 : ${moduleTypes}" th:value="${mod2.name()}" th:text="${mod2.description}"
+                  th:selected="${module != null and module == mod2.name()}">
+                </option>
+              </select>
+
+            </div>
+            <div class="col-md-1">
+              <label class="form-label small text-muted">结果</label>
+              <select class="form-select form-select-sm" name="result">
+                <option value="">全部</option>
+                <option value="SUCCESS" th:selected="${result == 'SUCCESS'}">成功</option>
+                <option value="FAILURE" th:selected="${result == 'FAILURE'}">失败</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small text-muted">开始日期</label>
+              <input type="date" class="form-control form-control-sm" name="startDate" th:value="${startDate}">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small text-muted">结束日期</label>
+              <input type="date" class="form-control form-control-sm" name="endDate" th:value="${endDate}">
+            </div>
+            <div class="col-md-1">
+              <div class="d-flex gap-1">
+                <button type="submit" class="btn btn-sm btn-primary">
+                  <i class="fas fa-search"></i>
+                </button>
+                <a th:href="@{/admin/audit-logs}" class="btn btn-sm btn-outline-secondary">
+                  <i class="fas fa-redo"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Table -->
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle" th:if="${not #lists.isEmpty(logs)}">
+            <thead class="bg-light">
+              <tr>
+                <th class="ps-4">操作人</th>
+                <th>操作类型</th>
+                <th>模块</th>
+                <th>描述</th>
+                <th>IP 地址</th>
+                <th>结果</th>
+                <th>耗时</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="log : ${logs}">
+                <td class="ps-4">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center"
+                      style="width: 32px; height: 32px; font-size: 0.75rem; font-weight: 600;">
+                      <span
+                        th:text="${log.operator != null ? log.operator.substring(0, 1).toUpperCase() : '?'}">A</span>
+                    </div>
+                    <span th:text="${log.operator}">admin</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge px-2 py-1" th:classappend="'badge-op-' + ${log.operationType.name().toLowerCase()}"
+                    th:text="${log.operationType.description}">新增</span>
+                </td>
+                <td>
+                  <span class="text-muted small" th:text="${log.module.description}">用户管理</span>
+                </td>
+                <td class="description-cell" th:title="${log.description}">
+                  <span th:text="${log.description}">操作描述</span>
+                </td>
+                <td class="ip-cell">
+                  <span th:text="${log.ipAddress != null ? log.ipAddress : '-'}">127.0.0.1</span>
+                </td>
+                <td>
+                  <span th:if="${log.result == 'SUCCESS'}"
+                    class="badge bg-success-subtle text-success px-2 py-1">成功</span>
+                  <span th:if="${log.result == 'FAILURE'}"
+                    class="badge bg-danger-subtle text-danger px-2 py-1">失败</span>
+                </td>
+                <td>
+                  <span class="text-muted small"
+                    th:text="${log.executionTime != null ? log.executionTime + 'ms' : '-'}">10ms</span>
+                </td>
+                <td>
+                  <span class="text-muted small"
+                    th:text="${#temporals.format(log.createdAt, 'yyyy-MM-dd HH:mm:ss')}">2026-03-24 10:00:00</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Empty State -->
+          <div th:if="${logs == null or #lists.isEmpty(logs)}" class="empty-state">
+            <i class="fas fa-inbox d-block"></i>
+            <h6 class="text-muted">暂无审计日志记录</h6>
+            <p class="text-muted small">系统操作记录将在此处显示</p>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div th:if="${totalPages != null and totalPages > 1}"
+          class="d-flex justify-content-between align-items-center px-4 py-3 border-top">
+          <div class="text-muted small">
+            显示第 <span
+              th:text="${currentPage != null and pageSize != null ? (currentPage - 1) * pageSize + 1 : 1}">1</span> -
+            <span
+              th:text="${currentPage != null and pageSize != null and totalElements != null ? (currentPage * pageSize > totalElements ? totalElements : currentPage * pageSize) : 0}">20</span>
+            条，共 <span th:text="${totalElements != null ? totalElements : 0}">0</span> 条
+          </div>
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" th:classappend="${currentPage != null and currentPage == 1 ? 'disabled' : ''}">
+                <a class="page-link"
+                  th:href="@{/admin/audit-logs(page=${currentPage != null ? currentPage - 1 : 1},size=${pageSize != null ? pageSize : 20},operator=${operator},operationType=${operationType},module=${module},result=${result},startDate=${startDate},endDate=${endDate})}">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+              <th:block th:if="${totalPages != null and totalPages > 0}"
+                th:with="startPage=${currentPage != null and currentPage - 2 > 1 ? currentPage - 2 : 1}, endPage=${currentPage != null and currentPage + 2 < totalPages ? currentPage + 2 : totalPages}">
+                <li th:if="${startPage > 1}" class="page-item">
+                  <a class="page-link"
+                    th:href="@{/admin/audit-logs(page=1,size=${pageSize != null ? pageSize : 20},operator=${operator},operationType=${operationType},module=${module},result=${result},startDate=${startDate},endDate=${endDate})}">1</a>
+                </li>
+                <li th:if="${startPage > 2}" class="page-item disabled"><span class="page-link">...</span></li>
+                <li th:each="i : ${#numbers.sequence(startPage != null ? startPage : 1, endPage != null ? endPage : 1)}"
+                  class="page-item" th:classappend="${i == currentPage ? 'active' : ''}">
+                  <a class="page-link"
+                    th:href="@{/admin/audit-logs(page=${i},size=${pageSize != null ? pageSize : 20},operator=${operator},operationType=${operationType},module=${module},result=${result},startDate=${startDate},endDate=${endDate})}"
+                    th:text="${i}">1</a>
+                </li>
+                <li th:if="${endPage < totalPages - 1}" class="page-item disabled"><span class="page-link">...</span>
+                </li>
+                <li th:if="${endPage < totalPages}" class="page-item">
+                  <a class="page-link"
+                    th:href="@{/admin/audit-logs(page=${totalPages},size=${pageSize != null ? pageSize : 20},operator=${operator},operationType=${operationType},module=${module},result=${result},startDate=${startDate},endDate=${endDate})}"
+                    th:text="${totalPages}">10</a>
+                </li>
+              </th:block>
+              <li class="page-item"
+                th:classappend="${currentPage != null and totalPages != null and currentPage == totalPages ? 'disabled' : ''}">
+                <a class="page-link"
+                  th:href="@{/admin/audit-logs(page=${currentPage != null ? currentPage + 1 : 1},size=${pageSize != null ? pageSize : 20},operator=${operator},operationType=${operationType},module=${module},result=${result},startDate=${startDate},endDate=${endDate})}">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.staticfile.org/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

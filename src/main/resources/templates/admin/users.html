@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - SSO 认证中心</title>
+    <!-- 预连接提升加载速度 -->
+    <link rel="preconnect" href="https://cdn.staticfile.org">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <!-- 使用国内镜像 CDN 提升加载速度 -->
+    <link href="https://cdn.staticfile.org/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.staticfile.org/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --topbar-height: 70px;
+            --primary-color: #4f46e5;
+            --bg-color: #f8fafc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: #1e293b;
+            color: white;
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            height: var(--topbar-height);
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-link {
+            color: #94a3b8;
+            padding: 12px 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 4px solid transparent;
+            text-decoration: none;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--primary-color);
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        .topbar {
+            height: var(--topbar-height);
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .content-body {
+            padding: 30px;
+        }
+
+        .user-card {
+            background: white;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .table thead {
+            background-color: #f1f5f9;
+        }
+
+        .table th {
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            padding: 15px 20px;
+        }
+
+        .table td {
+            padding: 15px 20px;
+            vertical-align: middle;
+        }
+
+        .avatar-circle {
+            width: 35px;
+            height: 35px;
+            background: #e2e8f0;
+            color: #475569;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-weight: 500;
+        }
+
+        .search-box {
+            max-width: 300px;
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .pagination-info {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        /* 确保模态框显示在最上层 */
+        .modal {
+            z-index: 1055 !important;
+        }
+
+        .modal-backdrop {
+            z-index: 1050 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h5 class="mb-0 fw-bold text-white"><i class="fas fa-shield-halved me-2 text-primary"></i>认证中心</h5>
+        </div>
+        <div class="mt-4">
+            <a href="/admin/dashboard" class="nav-link">
+                <i class="fas fa-chart-line"></i> 仪表盘
+            </a>
+            <a href="/admin/users" class="nav-link active">
+                <i class="fas fa-users-cog"></i> 用户管理
+            </a>
+            <a href="/admin/roles" class="nav-link">
+                <i class="fas fa-user-shield"></i> 角色管理
+            </a>
+            <a href="/admin/clients" class="nav-link">
+                <i class="fas fa-project-diagram"></i> 客户端管理
+            </a>
+            <a href="/admin/audit-logs" class="nav-link">
+                <i class="fas fa-history"></i> 审计日志
+            </a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="topbar">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item text-muted">管理后台</li>
+                    <li class="breadcrumb-item active">用户管理</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-end d-none d-sm-block">
+                    <div class="fw-semibold small" sec:authentication="name">Admin</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">超级管理员</div>
+                </div>
+                <form th:action="@{/logout}" method="post">
+                    <button type="submit" class="logout-btn small"><i class="fas fa-sign-out-alt"></i></button>
+                </form>
+            </div>
+        </div>
+
+        <div class="content-body">
+            <!-- 成功提示 -->
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${successMessage}">操作成功！</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <!-- 错误提示 -->
+            <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span th:text="${errorMessage}">操作失败！</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0">用户列表</h4>
+                <button type="button" class="btn btn-primary btn-sm px-3 rounded-pill" id="addUserBtn"
+                    onclick="openAddUserModal()">
+                    <i class="fas fa-plus me-1"></i> 新增用户
+                </button>
+            </div>
+
+            <!-- 搜索框 -->
+            <div class="mb-3">
+                <form method="get" th:action="@{/admin/users}" class="search-box">
+                    <input type="hidden" name="page" value="1">
+                    <input type="hidden" name="size" th:value="${pageSize}">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="keyword" th:value="${keyword}"
+                            placeholder="搜索用户名...">
+                        <button class="btn btn-outline-primary" type="submit">
+                            <i class="fas fa-search"></i> 搜索
+                        </button>
+                        <a th:href="@{/admin/users}" class="btn btn-outline-secondary"
+                            th:if="${keyword != null and !keyword.isBlank()}">
+                            <i class="fas fa-times"></i> 清除
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <div class="user-card">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>用户信息</th>
+                                <th>角色权限</th>
+                                <th>账户状态</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="user : ${users}">
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="avatar-circle"
+                                            th:text="${user.username != null and user.username.length() > 0} ? ${user.username.substring(0,1).toUpperCase()} : 'U'">
+                                            U
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold" th:text="${user.username}">username</div>
+                                            <div class="text-muted small">ID: <span th:text="${user.username}">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span
+                                        th:each="role : ${#strings.arraySplit((user.roles != null ? user.roles : ''), ',')}"
+                                        class="badge rounded-pill px-3 py-2 me-1"
+                                        th:classappend="${role == 'ROLE_ADMIN' || role == 'ROLE_USER'} ? 'bg-primary bg-opacity-10 text-primary' : 'bg-info bg-opacity-10 text-info'"
+                                        th:text="${role}">ROLE_USER</span>
+                                </td>
+                                <td>
+                                    <span th:if="${user.enabled}" class="text-success small fw-semibold">
+                                        <i class="fas fa-circle-check me-1"></i> 正常
+                                    </span>
+                                    <span th:unless="${user.enabled}" class="text-danger small fw-semibold">
+                                        <i class="fas fa-circle-xmark me-1"></i> 禁用
+                                    </span>
+                                </td>
+                                <td class="text-muted small" th:text="${user.createdAt}">
+                                    2024-01-01 12:00
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-light btn-sm rounded-circle" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <li>
+                                                <a class="dropdown-item small edit-user-btn" href="#"
+                                                    th:data-username="${user.username}"
+                                                    th:data-enabled="${user.enabled}">
+                                                    <i class="far fa-edit me-2"></i>编辑信息
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item small edit-auth-btn" href="#"
+                                                    th:data-username="${user.username}" th:data-roles="${user.roles}">
+                                                    <i class="fas fa-shield me-2"></i>修改权限
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li>
+                                                <form th:if="${user.username != 'admin'}"
+                                                    th:action="@{/admin/users/delete}" method="post"
+                                                    onsubmit="return confirm('确定要删除该用户吗？');">
+                                                    <input type="hidden" name="username" th:value="${user.username}">
+                                                    <input type="hidden" name="page" th:value="${currentPage}">
+                                                    <input type="hidden" name="size" th:value="${pageSize}">
+                                                    <input type="hidden" name="keyword" th:value="${keyword}">
+                                                    <button type="submit" class="dropdown-item small text-danger"><i
+                                                            class="far fa-trash-can me-2"></i>删除</button>
+                                                </form>
+                                                <span th:if="${user.username == 'admin'}"
+                                                    class="dropdown-item small text-muted disabled">系统保护</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 分页组件 -->
+            <div class="pagination-container" th:if="${totalUsers > 0}">
+                <div class="pagination-info">
+                    显示第 <span th:text="${(currentPage - 1) * pageSize + 1}">1</span> 到
+                    <span
+                        th:text="${(currentPage * pageSize < totalUsers) ? (currentPage * pageSize) : totalUsers}">10</span>
+                    条，
+                    共 <span th:text="${totalUsers}">0</span> 条记录
+                </div>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination mb-0">
+                        <!-- 上一页 -->
+                        <li class="page-item" th:classappend="${currentPage == 1} ? 'disabled' : ''">
+                            <a class="page-link"
+                                th:href="@{/admin/users(page=${currentPage - 1}, size=${pageSize}, keyword=${keyword})}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+
+                        <!-- 页码 -->
+                        <li class="page-item" th:each="i : ${#numbers.sequence(1, totalPages)}"
+                            th:classappend="${currentPage == i} ? 'active' : ''">
+                            <a class="page-link"
+                                th:href="@{/admin/users(page=${i}, size=${pageSize}, keyword=${keyword})}"
+                                th:text="${i}">1</a>
+                        </li>
+
+                        <!-- 下一页 -->
+                        <li class="page-item" th:classappend="${currentPage == totalPages} ? 'disabled' : ''">
+                            <a class="page-link"
+                                th:href="@{/admin/users(page=${currentPage + 1}, size=${pageSize}, keyword=${keyword})}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+
+            <!-- 无数据提示 -->
+            <div class="text-center text-muted py-5" th:if="${totalUsers == 0}">
+                <i class="fas fa-inbox fa-3x mb-3" style="opacity: 0.3;"></i>
+                <p class="text-muted">暂无用户数据</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加用户模态框 -->
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+                <form th:action="@{/admin/users/add}" method="post" id="addUserForm"
+                    onsubmit="event.preventDefault(); validateAddUserForm();">
+                    <!-- ⭐ CSRF Token -->
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+
+                    <input type="hidden" name="page" th:value="${currentPage}">
+                    <input type="hidden" name="size" th:value="${pageSize}">
+                    <input type="hidden" name="keyword" th:value="${keyword}">
+
+                    <!-- 后端验证错误消息 -->
+                    <div class="alert alert-danger alert-dismissible fade show m-3" role="alert" id="add-form-error"
+                        style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span id="add-form-error-message"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" onclick="hideError()"></button>
+                    </div>
+
+                    <!-- 后端验证错误消息 -->
+                    <div class="alert alert-danger alert-dismissible fade show m-3" role="alert"
+                        th:if="${errorMessage}">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span th:text="${errorMessage}">错误信息</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    <div class="alert alert-success alert-dismissible fade show m-3" role="alert"
+                        th:if="${successMessage}">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span th:text="${successMessage}">成功信息</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+
+                    <div class="modal-header border-0 pb-0 pt-4 px-4">
+                        <h5 class="fw-bold">创建新用户</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">用户名</label>
+                            <input type="text" class="form-control bg-light border-0 py-2" name="username"
+                                id="add-username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">登录密码</label>
+                            <input type="password" class="form-control bg-light border-0 py-2" name="password"
+                                id="add-password" required>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="add-enabled" name="enabled"
+                                    value="true" checked>
+                                <label class="form-check-label small fw-bold text-muted" for="add-enabled">启用账户</label>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label small fw-bold text-muted mb-3 d-block">分配权限角色 (多选)</label>
+                            <div class="card bg-light border-0 p-3" style="max-height: 150px; overflow-y: auto;">
+                                <div class="form-check mb-2" th:each="role : ${allRoles}">
+                                    <input class="form-check-input" type="checkbox" name="roles" th:value="${role}"
+                                        th:id="${'add-role-' + role}" th:checked="${role == 'ROLE_USER'}">
+                                    <label class="form-check-label small fw-semibold" th:for="${'add-role-' + role}"
+                                        th:text="${role}">
+                                        ROLE_USER
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4 pt-0">
+                        <button type="button" class="btn btn-light px-4 rounded-pill"
+                            data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary px-4 rounded-pill">确认创建</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑用户信息模态框 -->
+    <div class="modal fade" id="editUserModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+                <form th:action="@{/admin/users/update}" method="post">
+                    <input type="hidden" name="page" th:value="${currentPage}">
+                    <input type="hidden" name="size" th:value="${pageSize}">
+                    <input type="hidden" name="keyword" th:value="${keyword}">
+                    <div class="modal-header border-0 pb-0 pt-4 px-4">
+                        <h5 class="fw-bold">编辑用户信息</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">用户名 (不可修改)</label>
+                            <input type="text" class="form-control bg-light border-0 py-2" id="edit-username"
+                                name="username" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">新密码 (留空表示不修改)</label>
+                            <input type="password" class="form-control bg-light border-0 py-2" name="password"
+                                placeholder="请输入新密码">
+                        </div>
+                        <div class="mb-0">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="edit-enabled" name="enabled"
+                                    value="true">
+                                <label class="form-check-label small fw-bold text-muted" for="edit-enabled">启用账户</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4 pt-0">
+                        <button type="button" class="btn btn-light px-4 rounded-pill"
+                            data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary px-4 rounded-pill">保存修改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改权限模态框 -->
+    <div class="modal fade" id="editAuthModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+                <form th:action="@{/admin/users/authorities}" method="post">
+                    <input type="hidden" name="page" th:value="${currentPage}">
+                    <input type="hidden" name="size" th:value="${pageSize}">
+                    <input type="hidden" name="keyword" th:value="${keyword}">
+                    <div class="modal-header border-0 pb-0 pt-4 px-4">
+                        <h5 class="fw-bold">修改用户权限</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted">目标用户</label>
+                            <input type="text" class="form-control bg-light border-0 py-2" id="auth-username"
+                                name="username" readonly>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label small fw-bold text-muted mb-3 d-block">分配权限角色 (多选)</label>
+                            <div class="card bg-light border-0 p-3" style="max-height: 150px; overflow-y: auto;">
+                                <div class="form-check mb-2" th:each="role : ${allRoles}">
+                                    <input class="form-check-input auth-checkbox" type="checkbox" name="authorities"
+                                        th:value="${role}" th:id="${'edit-role-' + role}">
+                                    <label class="form-check-label small fw-semibold" th:for="${'edit-role-' + role}"
+                                        th:text="${role}">
+                                        ROLE_USER
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4 pt-0">
+                        <button type="button" class="btn btn-light px-4 rounded-pill"
+                            data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary px-4 rounded-pill">确认更新</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.staticfile.org/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.staticfile.org/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        // 全局变量存储 Modal 实例
+        var addUserModal = null;
+        var editUserModal = null;
+        var editAuthModal = null;
+
+        // ⭐ 页面加载完成后检查是否有错误消息，如果有则打开模态框
+        document.addEventListener('DOMContentLoaded', function () {
+            // 检查是否有错误消息（后端验证失败）
+            var errorDiv = document.querySelector('.modal-body .alert-danger');
+            if (errorDiv && errorDiv.style.display !== 'none') {
+                // 有错误消息，打开模态框
+                if (addUserModal) {
+                    addUserModal.show();
+                }
+            }
+        });
+
+        // ⭐ 检查用户名是否存在的函数（异步方式）
+        function checkUsernameExists(username) {
+            console.log('开始检查用户名是否存在:', username);
+            return new Promise(function (resolve, reject) {
+                $.ajax({
+                    url: '/admin/users/check-username',
+                    type: 'GET',
+                    data: { username: username },
+                    success: function (response) {
+                        console.log('用户名检查结果:', response.exists);
+                        resolve(response.exists);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('检查用户名是否存在时出错:', error);
+                        console.error('状态:', status);
+                        console.error('XHR:', xhr);
+                        // 错误时也返回 false，让后端去验证
+                        resolve(false);
+                    }
+                });
+            });
+        }
+
+        // 全局函数：打开新增用户模态框（必须在全局作用域）
+        window.openAddUserModal = function () {
+            // 清空输入框
+            if (document.getElementById('add-username')) {
+                document.getElementById('add-username').value = '';
+            }
+            if (document.getElementById('add-password')) {
+                document.getElementById('add-password').value = '';
+            }
+            // 默认启用账户
+            if (document.getElementById('add-enabled')) {
+                document.getElementById('add-enabled').checked = true;
+            }
+
+            // ⭐ 清空错误和成功提示信息
+            var errorDiv = document.querySelector('#addRoleForm .alert-danger');
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+            var successDiv = document.querySelector('#addRoleForm .alert-success');
+            if (successDiv) {
+                successDiv.style.display = 'none';
+            }
+
+            if (addUserModal) {
+                addUserModal.show();
+            }
+        };
+
+        // 表单验证函数
+        window.validateAddUserForm = async function () {
+            var username = document.getElementById('add-username').value.trim();
+            var password = document.getElementById('add-password').value;
+
+            // 隐藏之前的错误
+            hideError();
+
+            // 验证用户名
+            if (!username) {
+                showError('请输入用户名');
+                return false;
+            }
+
+            if (username.length < 3) {
+                showError('用户名至少需要 3 个字符');
+                return false;
+            }
+
+            if (username.length > 50) {
+                showError('用户名不能超过 50 个字符');
+                return false;
+            }
+
+            // ⭐ 异步检查用户名是否存在
+            try {
+                var exists = await checkUsernameExists(username);
+                if (exists) {
+                    showError('用户名 "' + username + '" 已存在，请选择其他用户名');
+                    console.log('用户名已存在，阻止提交');
+                    return false;
+                }
+                console.log('用户名可用，继续验证');
+            } catch (error) {
+                console.error('用户名检查失败:', error);
+            }
+
+            // 验证密码
+            if (!password) {
+                showError('请输入密码');
+                return false;
+            }
+
+            if (password.length < 6) {
+                showError('密码至少需要 6 个字符');
+                return false;
+            }
+
+            if (password.length > 100) {
+                showError('密码不能超过 100 个字符');
+                return false;
+            }
+
+            // 验证角色选择
+            var checkedRoles = document.querySelectorAll('input[name="roles"]:checked');
+            if (checkedRoles.length === 0) {
+                showError('请至少选择一个权限角色');
+                return false;
+            }
+
+            // ⭐ 所有验证通过，提交表单
+            document.getElementById('addUserForm').submit();
+
+            return false; // 始终返回 false 阻止默认提交
+        };
+
+        // 显示错误消息
+        window.showError = function (message) {
+            var errorDiv = document.getElementById('add-form-error');
+            var errorMessage = document.getElementById('add-form-error-message');
+            if (errorDiv && errorMessage) {
+                errorMessage.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        };
+
+        // 隐藏错误消息
+        window.hideError = function () {
+            var errorDiv = document.getElementById('add-form-error');
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+        };
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            // 初始化新增用户模态框
+            var addUserModalElement = document.getElementById('addUserModal');
+            if (addUserModalElement) {
+                addUserModal = new bootstrap.Modal(addUserModalElement);
+            }
+
+            // 初始化编辑用户模态框
+            var editUserModalElement = document.getElementById('editUserModal');
+            if (editUserModalElement) {
+                editUserModal = new bootstrap.Modal(editUserModalElement);
+
+                // 为编辑按钮添加点击事件
+                var editButtons = document.querySelectorAll('.edit-user-btn');
+                editButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        document.getElementById('edit-username').value = this.dataset.username;
+                        document.getElementById('edit-enabled').checked = this.dataset.enabled === 'true';
+                        if (editUserModal) {
+                            editUserModal.show();
+                        }
+                    });
+                });
+            }
+
+            // 初始化修改权限模态框
+            var editAuthModalElement = document.getElementById('editAuthModal');
+            if (editAuthModalElement) {
+                editAuthModal = new bootstrap.Modal(editAuthModalElement);
+
+                // 为修改权限按钮添加点击事件
+                var authButtons = document.querySelectorAll('.edit-auth-btn');
+                authButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        document.getElementById('auth-username').value = this.dataset.username;
+
+                        // 解析当前角色（处理逗号分隔的字符串）
+                        var currentRoles = this.dataset.roles || '';
+
+                        // ⭐ 勾选对应的复选框（checkbox.value 已经是完整角色名）
+                        document.querySelectorAll('.auth-checkbox').forEach(function (checkbox) {
+                            checkbox.checked = currentRoles.includes(checkbox.value);
+                        });
+
+                        if (editAuthModal) {
+                            editAuthModal.show();
+                        }
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

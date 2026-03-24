@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- ⭐ Spring Security CSRF Token -->
+    <meta name="_csrf" th:content="${_csrf.token}" />
+    <meta name="_csrf_header" th:content="${_csrf.headerName}" />
+    <title>角色管理 - SSO 认证中心</title>
+    <!-- 预连接提升加载速度 -->
+    <link rel="preconnect" href="https://cdn.staticfile.org">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <!-- 使用国内镜像 CDN 提升加载速度 -->
+    <link href="https://cdn.staticfile.org/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.staticfile.org/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.staticfile.org/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --topbar-height: 70px;
+            --primary-color: #4f46e5;
+            --bg-color: #f8fafc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: #1e293b;
+            color: white;
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            height: var(--topbar-height);
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-link {
+            color: #94a3b8;
+            padding: 12px 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 4px solid transparent;
+            text-decoration: none;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--primary-color);
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        .topbar {
+            height: var(--topbar-height);
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .content-body {
+            padding: 30px;
+        }
+
+        .role-card {
+            background: white;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .table thead {
+            background-color: #f1f5f9;
+        }
+
+        .table th {
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            padding: 15px 20px;
+        }
+
+        .table td {
+            padding: 15px 20px;
+            vertical-align: middle;
+        }
+
+        .badge-count {
+            background: #eef2ff;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h5 class="mb-0 fw-bold text-white"><i class="fas fa-shield-halved me-2 text-primary"></i>认证中心</h5>
+        </div>
+        <div class="mt-4">
+            <a href="/admin/dashboard" class="nav-link">
+                <i class="fas fa-chart-line"></i> 仪表盘
+            </a>
+            <a href="/admin/users" class="nav-link">
+                <i class="fas fa-users-cog"></i> 用户管理
+            </a>
+            <a href="/admin/roles" class="nav-link active">
+                <i class="fas fa-user-shield"></i> 角色管理
+            </a>
+            <a href="/admin/clients" class="nav-link">
+                <i class="fas fa-project-diagram"></i> 客户端管理
+            </a>
+            <a href="/admin/audit-logs" class="nav-link">
+                <i class="fas fa-history"></i> 审计日志
+            </a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="topbar">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item text-muted">管理后台</li>
+                    <li class="breadcrumb-item active">角色管理</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-end d-none d-sm-block">
+                    <div class="fw-semibold small" sec:authentication="name">Admin</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">超级管理员</div>
+                </div>
+                <form th:action="@{/logout}" method="post">
+                    <button type="submit" class="logout-btn small"><i class="fas fa-sign-out-alt"></i></button>
+                </form>
+            </div>
+        </div>
+
+        <div class="content-body">
+            <!-- 成功提示 -->
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${successMessage}">操作成功！</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <!-- 错误提示 -->
+            <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span th:text="${errorMessage}">操作失败！</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0">系统角色列表</h4>
+                <button class="btn btn-primary btn-sm px-3 rounded-pill" onclick="openAddRoleModal()">
+                    <i class="fas fa-plus me-1"></i> 新建角色
+                </button>
+            </div>
+
+            <div class="role-card">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>角色标识 (Authority)</th>
+                                <th>关联用户数</th>
+                                <th>描述</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="role : ${roles}">
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <!-- 内置角色图标 -->
+                                        <div th:if="${role.roleName == 'ROLE_ADMIN' || role.roleName == 'ROLE_USER'}"
+                                            class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle"
+                                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="fas fa-shield-halved small"></i>
+                                        </div>
+                                        <!-- 自定义角色图标 -->
+                                        <div th:unless="${role.roleName == 'ROLE_ADMIN' || role.roleName == 'ROLE_USER'}"
+                                            class="bg-info bg-opacity-10 text-info p-2 rounded-circle"
+                                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="fas fa-tags small"></i>
+                                        </div>
+                                        <span class="fw-bold" th:text="${role.roleName}">ROLE_USER</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-count rounded-pill px-3 py-2"
+                                        th:text="${role.userCount}">0</span>
+                                </td>
+                                <td class="text-muted small" th:text="${role.description}">
+                                    角色描述信息
+                                </td>
+                                <td class="text-muted small" th:text="${role.createdAt}">
+                                    2024-01-01 12:00:00
+                                </td>
+                                <td>
+                                    <form th:if="${role.roleName != 'ROLE_ADMIN' && role.roleName != 'ROLE_USER'}"
+                                        th:action="@{/admin/roles/delete}" method="post"
+                                        onsubmit="return confirm('确认要从所有用户中移除该角色吗？该操作不可撤销！');">
+                                        <input type="hidden" name="roleName" th:value="${role.roleName}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                                            <i class="far fa-trash-can me-1"></i> 移除角色
+                                        </button>
+                                    </form>
+                                    <span th:unless="${role.roleName != 'ROLE_ADMIN' && role.roleName != 'ROLE_USER'}"
+                                        class="text-muted small italic">系统内置角色不可移除</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建角色模态框 -->
+    <div class="modal fade" id="addRoleModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+                <form th:action="@{/admin/roles/add}" method="post" id="addRoleForm">
+                    <!-- ⭐ CSRF Token -->
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+
+                    <!-- 前端验证错误消息 -->
+                    <div class="alert alert-danger alert-dismissible fade show m-3" role="alert" id="add-role-error"
+                        style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span id="add-role-error-message"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"
+                            onclick="hideRoleError()"></button>
+                    </div>
+
+                    <div class="modal-header border-0 pb-0 pt-4 px-4">
+                        <h5 class="fw-bold">新建系统角色</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted">角色标识 (Role Name)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-0 py-2">ROLE_</span>
+                                <input type="text" class="form-control bg-light border-0 py-2" name="roleName"
+                                    placeholder="例如: MANAGER" required>
+                            </div>
+                            <div class="form-text small mt-2">系统会自动补全 <code>ROLE_</code> 前缀。</div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label small fw-bold text-muted">角色描述</label>
+                            <textarea class="form-control bg-light border-0 py-2" name="description" rows="3"
+                                placeholder="请输入角色的功能描述..."></textarea>
+                            <div class="form-text small mt-2">留空则默认为：系统自定义角色。</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4 pt-0">
+                        <button type="button" class="btn btn-light px-4 rounded-pill"
+                            data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary px-4 rounded-pill">确认创建</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.staticfile.org/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 页面加载完成后检查是否有错误消息，如果有则打开模态框
+        document.addEventListener('DOMContentLoaded', function () {
+            var errorMessage = document.getElementById('backend-error');
+
+            // ⭐ 只在有错误消息时才打开模态框
+            if (errorMessage) {
+                // 有错误消息，打开模态框
+                var addRoleModalElement = document.getElementById('addRoleModal');
+                if (addRoleModalElement) {
+                    var modal = new bootstrap.Modal(addRoleModalElement);
+                    modal.show();
+
+                    // ⭐ 让角色名输入框获得焦点，方便用户快速修改
+                    setTimeout(function () {
+                        var roleNameInput = document.querySelector('input[name="roleName"]');
+                        if (roleNameInput) {
+                            roleNameInput.focus();
+                            roleNameInput.select();
+                        }
+                    }, 300);
+                }
+            }
+        });
+
+        // ⭐ 点击新建角色按钮时清空所有提示信息
+        window.openAddRoleModal = function () {
+            // 隐藏前端验证错误
+            hideRoleError();
+
+            // 清空表单输入
+            var roleNameInput = document.querySelector('input[name="roleName"]');
+            if (roleNameInput) {
+                roleNameInput.value = '';
+            }
+
+            var descriptionInput = document.querySelector('textarea[name="description"]');
+            if (descriptionInput) {
+                descriptionInput.value = '';
+            }
+
+            // 打开模态框
+            var addRoleModalElement = document.getElementById('addRoleModal');
+            if (addRoleModalElement) {
+                var modal = new bootstrap.Modal(addRoleModalElement);
+                modal.show();
+            }
+        };
+
+        // ⭐ 角色表单提交处理函数（使用 AJAX）
+        window.handleRoleSubmit = async function (event) {
+            event.preventDefault(); // 阻止默认表单提交
+
+            // 隐藏之前的错误
+            hideRoleError();
+
+            // ⭐ 确保获取正确的输入框（排除 hidden 类型）
+            var roleNameInput = document.querySelector('#addRoleForm input[type="text"][name="roleName"]');
+            var roleName = roleNameInput ? roleNameInput.value.trim() : '';
+            var descriptionInput = document.querySelector('#addRoleForm textarea[name="description"]');
+            var description = descriptionInput ? descriptionInput.value.trim() : '';
+
+            // ⭐ 调试输出
+            console.log('输入框对象:', roleNameInput);
+            console.log('角色名原始值:', roleNameInput ? roleNameInput.value : 'null');
+            console.log('角色名处理后:', roleName);
+
+            // 基础验证
+            if (!roleName) {
+                showRoleError('请输入角色标识');
+                return false;
+            }
+
+            if (roleName.length < 2) {
+                showRoleError('角色标识至少需要 2 个字符');
+                return false;
+            }
+
+            if (roleName.length > 50) {
+                showRoleError('角色标识不能超过 50 个字符');
+                return false;
+            }
+
+            // 验证格式
+            if (!/^[A-Za-z0-9_]+$/.test(roleName)) {
+                showRoleError('角色标识只能包含字母、数字和下划线');
+                return false;
+            }
+
+            // ⭐ 异步检查角色是否已存在
+            var cleanRoleName = roleName.toUpperCase().replace(/^ROLE_/, '');
+            try {
+                var exists = await checkRoleExistsAsync(cleanRoleName);
+                if (exists) {
+                    showRoleError('角色标识 "' + roleName + '" 已存在，请选择其他角色名称');
+                    return false;
+                }
+            } catch (error) {
+                console.error('角色检查失败:', error);
+            }
+
+            // ⭐ 所有验证通过，提交传统表单（让浏览器处理重定向）
+            console.log('验证通过，提交表单...');
+            document.getElementById('addRoleForm').submit();
+
+            return false; // 始终返回 false 阻止默认提交
+        };
+
+        // ⭐ 检查角色是否存在的函数（异步方式，使用 Promise）
+        function checkRoleExistsAsync(roleName) {
+            return new Promise(function (resolve, reject) {
+                // 确保角色名以 ROLE_ 开头
+                var fullRoleName = roleName.startsWith('ROLE_') ? roleName : 'ROLE_' + roleName;
+
+                $.ajax({
+                    url: '/admin/roles/check-exists',
+                    type: 'GET',
+                    data: { roleName: fullRoleName },
+                    success: function (response) {
+                        resolve(response.exists);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('检查角色是否存在时出错:', error);
+                        // 错误时也返回 false，允许提交
+                        resolve(false);
+                    }
+                });
+            });
+        }
+
+        // 显示角色表单错误消息
+        window.showRoleError = function (message) {
+            var errorDiv = document.getElementById('add-role-error');
+            var errorMessage = document.getElementById('add-role-error-message');
+            if (errorDiv && errorMessage) {
+                errorMessage.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        };
+
+        // 隐藏角色表单错误消息
+        window.hideRoleError = function () {
+            var errorDiv = document.getElementById('add-role-error');
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+
+</html>
